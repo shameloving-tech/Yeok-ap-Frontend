@@ -34,9 +34,6 @@ const SubwayCharacter = () => {
 
   return (
     <View style={styles.characterContainer}>
-      {/* Shadow */}
-      <View style={styles.shadow} />
-      
       <Svg width="160" height="180" viewBox="0 0 160 180">
         {/* Body Outline */}
         <Rect

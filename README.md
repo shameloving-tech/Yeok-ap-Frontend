@@ -1,50 +1,45 @@
-# 역앞
+# 🚉 역앞 (Yeok-Ap) - 내 손안의 지하철 정보 커뮤니티
 
-이 프로젝트는 [`create-expo-app`](https://www.npmjs.com/package/create-expo-app)으로 생성된 [Expo](https://expo.dev) 프로젝트입니다.
+**역앞(Yeok-Ap)**은 지하철 이용객들이 실시간 정보를 공유하고, 복잡한 역사 내 정보를 한눈에 확인할 수 있도록 돕는 서비스입니다.
 
-## 시작하기
+## 📱 서비스 소개
+"지하철 역 앞에서 만나는 실시간 정보와 우리들의 이야기"
+단순한 시간표 조회를 넘어, 현재 지하철의 혼잡도, 돌발 상황 등을 사용자들끼리 실시간으로 공유하고 소통할 수 있는 플랫폼을 지향합니다.
 
-1. 의존성 설치
+## ✨ 주요 기능
+- **실시간 혼잡도 리포트**: 사용자들이 직접 보고하는 실시간 칸별 혼잡도 확인
+- **스마트 시간표**: 현재 위치 기반 가장 가까운 지하철역 정보 및 실시간 도착 예정 시간
+- **지하철 커뮤니티**: 특정 역이나 노선별로 소통할 수 있는 자유 게시판
+- **개인화 설정**: 자주 가는 역 즐겨찾기 및 맞춤형 알림 서비스
 
+## 🛠 기술 스택
+- **Framework**: React Native (Expo)
+- **Language**: TypeScript
+- **State Management**: React Hooks & Context API
+- **Real-time**: ActionCable (Websocket) integration
+- **Styling**: Nativewind / Styled-components (Vanilla CSS 기반)
+- **Navigation**: Expo Router (File-based Routing)
+
+## 🚀 시작하기
+
+### 환경 설정
+1. 프로젝트를 클론합니다.
+2. 의존성 패키지를 설치합니다.
    ```bash
    npm install
    ```
 
-2. 앱 실행
-
+### 실행 방법
+1. 개발 서버를 구동합니다.
    ```bash
    npx expo start
    ```
+2. Expo Go 앱을 통해 QR 코드를 스캔하거나, iOS/Android 에뮬레이터를 사용하여 앱을 확인합니다.
 
-터미널 출력에서 다음과 같은 앱 실행 옵션을 확인할 수 있습니다:
+## 🎨 디자인 가이드
+- **Main Color**: Subway Green (#2D6A4F)
+- **Typography**: Pretendard / System Default
+- **Assets**: 커스텀 제작된 지하철 캐릭터 애니메이션 스플래시 화면 적용
 
-- [개발 빌드(development build)](https://docs.expo.dev/develop/development-builds/introduction/)
-- [안드로이드 에뮬레이터(Android emulator)](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS 시뮬레이터(iOS simulator)](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go): Expo로 앱 개발을 테스트해볼 수 있는 제한된 샌드박스
-
-**app** 디렉토리 내부의 파일들을 수정하여 개발을 시작할 수 있습니다. 이 프로젝트는 [파일 기반 라우팅(file-based routing)](https://docs.expo.dev/router/introduction)을 사용합니다.
-
-## 프로젝트 초기화
-
-준비가 되었다면 다음 명령어를 실행하세요:
-
-```bash
-npm run reset-project
-```
-
-이 명령어는 스타터 코드를 **app-example** 디렉토리로 이동시키고, 개발을 시작할 수 있는 빈 **app** 디렉토리를 생성합니다.
-
-## 더 알아보기
-
-Expo를 이용한 프로젝트 개발에 대해 더 자세히 알아보려면 다음 리소스를 참고하세요:
-
-- [Expo 문서](https://docs.expo.dev/): 기본 사항을 배우거나 [가이드](https://docs.expo.dev/guides)를 통해 고급 주제를 살펴보세요.
-- [Expo 튜토리얼](https://docs.expo.dev/tutorial/introduction/): 안드로이드, iOS 및 웹에서 실행되는 프로젝트를 만드는 단계별 튜토리얼을 따라해보세요.
-
-## 커뮤니티 참여하기
-
-유니버설 앱을 만드는 개발자 커뮤니티에 참여하세요.
-
-- [GitHub의 Expo](https://github.com/expo/expo): 오픈 소스 플랫폼을 확인하고 기여하세요.
-- [Discord 커뮤니티](https://chat.expo.dev): Expo 사용자들과 대화하고 질문을 남겨보세요.
+---
+© 2026 Yeok-Ap Team. All rights reserved.
