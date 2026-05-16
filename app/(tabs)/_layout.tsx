@@ -33,14 +33,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: '홈',
           tabBarIcon: ({ color }) => <Ionicons size={24} name="home" color={color} />,
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Search',
+          title: '검색',
           tabBarIcon: ({ color }) => <Ionicons size={24} name="search" color={color} />,
         }}
         listeners={{
@@ -52,14 +52,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="community"
         options={{
-          title: 'Community',
+          title: '커뮤니티',
           tabBarIcon: ({ color }) => <Ionicons size={24} name="people" color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Profile',
+          title: '설정',
           tabBarIcon: ({ color }) => <Ionicons size={24} name="person" color={color} />,
         }}
       />
