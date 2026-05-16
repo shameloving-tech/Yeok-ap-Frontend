@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, MaterialCommunityIcons, FontAwesome6 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createConsumer } from '@rails/actioncable';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,8 +14,26 @@ import {
   TextInput,
   Dimensions
 } from 'react-native';
+import { Image } from 'expo-image';
 
 import { ThemedText } from '@/components/themed-text';
+
+const { width } = Dimensions.get('window');
+
+// New Design Colors
+const COLORS = {
+  primary: '#2E6D4D',
+  secondary: '#548C71',
+  background: '#F8F9FB',
+  searchBg: '#DBE5F9',
+  cardBg: '#FFFFFF',
+  textMain: '#1C1C1E',
+  textSub: '#8E8E93',
+  noticeBg: '#548C71',
+  noticeTag: '#FEE5A5',
+  line2: '#00A84D',
+  line1: '#0052A4',
+};
 
 // 모바일 환경 호환성 패치 
 if (typeof global.addEventListener !== 'function') {
@@ -25,7 +43,17 @@ if (typeof global.removeEventListener !== 'function') {
   (global as any).removeEventListener = () => {};
 }
 
-const SERVER_URL = 'ws://192.168.45.88:3000/cable';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
+// 로컬 개발 환경용 서버 주소 설정
+const getHostUrl = () => {
+  if (Platform.OS === 'android') return '10.0.2.2'; // 안드로이드 에뮬레이터
+  return 'localhost'; // iOS 시뮬레이터 및 웹
+};
+
+const HOST = getHostUrl();
+const SERVER_URL = `ws://${HOST}:3000/cable`;
 const LINE_CONFIG = [
   { id: '1호선', name: '1호선', color: '#0052A4' },
   { id: '2호선', name: '2호선', color: '#00A84D' },
@@ -51,7 +79,10 @@ const LINE_CONFIG = [
   { id: 'GTX-A', name: 'GTX-A', color: '#9A6262' },
 ];
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const [followedLines, setFollowedLines] = useState<string[]>([]);
   const [expandedLine, setExpandedLine] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -93,9 +124,29 @@ export default function HomeScreen() {
         return;
       }
 
-      let location = await Location.getCurrentPositionAsync({});
-      setUserLocation(location);
+      // 더 빠른 응답을 위해 마지막 위치를 시도
+      let lastLocation = await Location.getLastKnownPositionAsync({});
+      if (lastLocation) setUserLocation(lastLocation);
+
+      // 2. 현재 위치를 타임아웃 5초로 시도
+      try {
+        let location = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+        ]) as Location.LocationObject;
+        setUserLocation(location);
+      } catch (e) {
+        // GPS 실패 시 강남역을 기본 위치로 설정 (테스트용)
+        if (!userLocation) {
+          setUserLocation({
+            coords: { latitude: 37.4979, longitude: 127.0276 },
+            timestamp: Date.now()
+          } as any);
+          setLocationError('GPS 연결 실패 (강남역 기준)');
+        }
+      }
     } catch (error) {
+      console.warn('위치 획득 실패:', error);
       setLocationError('위치 획득 실패');
     }
   };
@@ -195,217 +246,294 @@ export default function HomeScreen() {
     return found ? found.color : '#AEAEB2';
   };
 
-  const renderLineItem = (line: any) => {
-    const isFollowed = followedLines.includes(line.id);
-    const isExpanded = expandedLine === line.id;
-    return (
-      <View key={line.id} style={styles.lineItemContainer}>
-        <TouchableOpacity style={[styles.lineItem, isExpanded && styles.expandedItem]} onPress={() => setExpandedLine(isExpanded ? null : line.id)} activeOpacity={0.7}>
-          <View style={[styles.lineBadge, { backgroundColor: line.color }]}><ThemedText style={styles.lineBadgeText}>{line.name[0]}</ThemedText></View>
-          <View style={styles.lineInfo}>
-            <View style={styles.lineHeader}>
-              <ThemedText style={styles.lineName}>{line.name}</ThemedText>
-              <View style={[styles.statusTag, { backgroundColor: getStatusColor(line.status) + '20' }]}><ThemedText style={[styles.statusTagText, { color: getStatusColor(line.status) }]}>{line.status}</ThemedText></View>
-            </View>
-            <View style={styles.msgRow}>
-              <ThemedText style={styles.lineMsg} numberOfLines={1}>{line.msg}</ThemedText>
-              {!isExpanded && line.transfers && line.transfers.length > 0 && (
-                <View style={styles.transferDots}>{line.transfers.map((t: string) => <View key={t} style={[styles.tDot, { backgroundColor: getTransferColor(t) }]} />)}</View>
-              )}
-            </View>
-          </View>
-          <TouchableOpacity onPress={() => toggleFollow(line.id)} style={styles.followBtn}><Ionicons name={isFollowed ? "star" : "star-outline"} size={22} color={isFollowed ? "#FFCC00" : "#C7C7CC"} /></TouchableOpacity>
-        </TouchableOpacity>
-        {isExpanded && (
-          <View style={styles.detailsContainer}>
-            <ThemedText style={styles.detailsTitle}>주요 환승역 연계 정보</ThemedText>
-            {line.detailedTransfers && line.detailedTransfers.length > 0 ? (
-              line.detailedTransfers.map((dt: any, idx: number) => (
-                <View key={idx} style={styles.transferStationRow}>
-                  <ThemedText style={styles.transferStationName}>{dt.stationName}</ThemedText>
-                  <View style={styles.transferLineList}>
-                    {dt.lines.map((tl: any, lIdx: number) => (
-                      <View key={lIdx} style={[styles.miniLineTag, { borderColor: getTransferColor(tl.name) + '40' }]}>
-                        <ThemedText style={[styles.miniLineText, { color: getTransferColor(tl.name) }]}>{tl.name}</ThemedText>
-                        <View style={[styles.miniStatusDot, { backgroundColor: getStatusColor(tl.status) }]} />
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ))
-            ) : <ThemedText style={styles.noDataText}>실시간 환승 정보가 없습니다.</ThemedText>}
-            <TouchableOpacity style={styles.viewCommunityBtn}>
-              <ThemedText style={styles.viewCommunityText}>{line.name} 커뮤니티 보기</ThemedText>
-              <Ionicons name="arrow-forward" size={14} color="#FF9F43" />
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    );
-  };
+  const FACILITIES = [
+    { id: 'restaurant', name: '맛집', icon: 'restaurant', type: 'MaterialIcons' },
+    { id: 'cafe', name: '카페', icon: 'cafe', type: 'Ionicons' },
+    { id: 'store', name: '편의점', icon: 'store', type: 'MaterialIcons' },
+    { id: 'pharmacy', name: '약국', icon: 'medical', type: 'Ionicons' },
+    { id: 'parking', name: '주차장', icon: 'local-parking', type: 'MaterialIcons' },
+    { id: 'toilet', name: '화장실', icon: 'wc', type: 'MaterialIcons' },
+    { id: 'atm', name: 'ATM', icon: 'atm', type: 'MaterialIcons' },
+    { id: 'more', name: '더보기', icon: 'grid', type: 'Ionicons' },
+  ];
 
-  const handleToggleSearch = () => {
-    if (isSearchMode) setSearchQuery('');
-    setIsSearchMode(!isSearchMode);
-  };
+  const RECENT_STATIONS = [
+    { id: 'gangnam', name: '강남역', nameEng: 'Gangnam', line: '2호선', color: COLORS.line2, lineNum: '2' },
+    { id: 'seoul', name: '서울역', nameEng: 'Seoul Stn.', line: '1호선', color: COLORS.line1, lineNum: '1' },
+    { id: 'hongik', name: '홍대입구역', nameEng: 'Hongik Univ.', line: '2호선', color: COLORS.line2, lineNum: '2' },
+  ];
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#FF9F43', '#FFBD69']} style={styles.header}>
-        <SafeAreaView>
-          <View style={styles.headerTop}>
-            {isSearchMode ? (
-              <View style={styles.searchBarContainer}>
-                <Ionicons name="search" size={20} color="white" style={styles.searchIcon} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="노선 또는 환승역 검색"
-                  placeholderTextColor="rgba(255,255,255,0.7)"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoFocus
-                />
-                <TouchableOpacity onPress={handleToggleSearch}>
-                  <Ionicons name="close-circle" size={20} color="white" />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                <View>
-                  <ThemedText style={styles.headerTitle}>역앞</ThemedText>
-                  <ThemedText style={styles.headerSub}>{isConnected ? '● 실시간 데이터 수신 중' : '○ 서버 연결 확인 중...'}</ThemedText>
-                </View>
-                <TouchableOpacity style={styles.searchBtn} onPress={handleToggleSearch}>
-                  <Ionicons name="search" size={24} color="white" />
-                </TouchableOpacity>
-              </>
-            )}
+      <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Image 
+              source={require('@/assets/images/character_design.svg')} 
+              style={styles.headerMascot}
+              contentFit="contain"
+            />
+            <ThemedText style={styles.headerTitle}>역앞</ThemedText>
           </View>
-        </SafeAreaView>
-      </LinearGradient>
-      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
-        {!isSearchMode && searchQuery === '' && (
-          <>
-            <View style={styles.nearestSection}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="location" size={16} color="#FF9F43" />
-                <ThemedText style={[styles.sectionTitle, { marginLeft: 4 }]}>내 주변 역 정보</ThemedText>
-              </View>
-              {nearestStation ? (
-                <View style={styles.nearestCard}>
-                  <View style={styles.nearestTop}>
-                    <View style={[styles.nearestLineBadge, { backgroundColor: getTransferColor(nearestStation.line_name) }]}>
-                      <ThemedText style={styles.nearestLineText}>{nearestStation.line_name[0]}</ThemedText>
-                    </View>
-                    <View style={styles.nearestInfo}>
-                      <ThemedText style={styles.nearestName}>{nearestStation.station_name}</ThemedText>
-                      <ThemedText style={styles.nearestDistance}>{(nearestStation.distance * 1000).toFixed(0)}m 거리</ThemedText>
-                    </View>
-                    <View style={[styles.statusTag, { backgroundColor: getStatusColor(nearestStation.congestion_level) + '20' }]}>
-                      <ThemedText style={[styles.statusTagText, { color: getStatusColor(nearestStation.congestion_level) }]}>
-                        {nearestStation.congestion_level}
-                      </ThemedText>
-                    </View>
-                  </View>
-                  <View style={styles.nearestArrival}>
-                    <Ionicons name="train" size={16} color="#8E8E93" />
-                    <ThemedText style={styles.arrivalMsg} numberOfLines={1}>{nearestStation.arrival_message}</ThemedText>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.loadingNearest}>
-                  <ActivityIndicator size="small" color="#FF9F43" />
-                  <ThemedText style={styles.loadingText}>
-                    {locationError || (!userLocation ? 'GPS 신호를 잡고 있습니다...' : '서버에서 역 정보를 가져오고 있습니다...')}
-                  </ThemedText>
-                </View>
-              )}
-            </View>
+          <TouchableOpacity style={styles.headerIcon}>
+            <Ionicons name="search" size={24} color={COLORS.textMain} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-            {followedLines.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}><ThemedText style={styles.sectionTitle}>관심 노선</ThemedText><ThemedText style={styles.countText}>{followedLines.length}</ThemedText></View>
-                {filteredLines.filter(l => followedLines.includes(l.id)).map(renderLineItem)}
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
+        {/* Search Bar */}
+        <View style={styles.searchSection}>
+          <TouchableOpacity style={styles.searchBar}>
+            <Ionicons name="search" size={20} color="#4A69BD" style={styles.searchIcon} />
+            <ThemedText style={styles.searchText}>어느 역으로 갈까요?</ThemedText>
+          </TouchableOpacity>
+        </View>
+
+        {/* Notice Banner */}
+        <View style={styles.noticeSection}>
+          <LinearGradient
+            colors={[COLORS.secondary, '#4A7C63']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.noticeCard}
+          >
+            <View style={styles.noticeContent}>
+              <View style={styles.noticeTag}>
+                <ThemedText style={styles.noticeTagText}>Notice</ThemedText>
               </View>
-            )}
-          </>
-        )}
+              <ThemedText style={styles.noticeTitle}>오늘부터 강남역 주변 할인 혜택 시작!</ThemedText>
+              <ThemedText style={styles.noticeSub}>역앞 캐릭터 '역이'와 함께 새로운 맛집 지도를 확인해보세요.</ThemedText>
+            </View>
+            <View style={styles.noticeImageContainer}>
+              <Image 
+                source={require('@/assets/images/character_design.svg')} 
+                style={styles.characterImage}
+                contentFit="contain"
+              />
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Recent Stations */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <ThemedText style={styles.sectionTitle}>{isSearchMode ? '검색 결과' : '수도권 노선'}</ThemedText>
-            <ThemedText style={styles.countText}>
-              {isSearchMode ? filteredLines.length : filteredLines.filter(l => !followedLines.includes(l.id)).length}
-            </ThemedText>
+            <ThemedText style={styles.sectionTitle}>최근 본 역</ThemedText>
+            <TouchableOpacity>
+              <ThemedText style={styles.seeAllText}>전체보기</ThemedText>
+            </TouchableOpacity>
           </View>
-          {isSearchMode 
-            ? filteredLines.map(renderLineItem)
-            : filteredLines.filter(l => !followedLines.includes(l.id)).map(renderLineItem)
-          }
-          {isSearchMode && filteredLines.length === 0 && (
-            <View style={styles.emptySearchResult}>
-              <Ionicons name="search-outline" size={48} color="#C7C7CC" />
-              <ThemedText style={styles.emptySearchText}>검색 결과가 없습니다.</ThemedText>
-            </View>
-          )}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            contentContainerStyle={styles.recentList}
+          >
+            {RECENT_STATIONS.map((station) => (
+              <View key={station.id} style={styles.recentCard}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.lineBadge, { backgroundColor: station.color }]}>
+                    <ThemedText style={styles.lineBadgeText}>{station.lineNum}</ThemedText>
+                  </View>
+                  <TouchableOpacity>
+                    <Ionicons name="heart-outline" size={20} color="#C7C7CC" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.cardBody}>
+                  <ThemedText style={styles.stationName}>{station.name}</ThemedText>
+                  <ThemedText style={styles.stationNameEng}>{station.nameEng}</ThemedText>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Facility Search */}
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>주변 시설 찾기</ThemedText>
+          <View style={styles.facilityGrid}>
+            {FACILITIES.map((facility) => (
+              <TouchableOpacity key={facility.id} style={styles.facilityItem}>
+                <View style={styles.facilityIconContainer}>
+                  {facility.type === 'MaterialIcons' ? (
+                    <MaterialIcons name={facility.icon as any} size={24} color={COLORS.primary} />
+                  ) : (
+                    <Ionicons name={facility.icon as any} size={24} color={COLORS.primary} />
+                  )}
+                </View>
+                <ThemedText style={styles.facilityName}>{facility.name}</ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Nearby Station Card */}
+        <View style={styles.section}>
+          <View style={styles.nearbyCard}>
+             <View style={styles.nearbyHeader}>
+               <Ionicons name="location" size={18} color={COLORS.primary} />
+               <ThemedText style={styles.nearbyTitle}>현재 내 주변 역</ThemedText>
+             </View>
+             {nearestStation ? (
+               <View style={styles.nearbyContent}>
+                 <View>
+                   <ThemedText style={styles.nearbyStationName}>{nearestStation.station_name}</ThemedText>
+                   <ThemedText style={styles.nearbyStationInfo}>
+                     {nearestStation.line_name} · 도보 {(nearestStation.distance * 15).toFixed(0)}분
+                   </ThemedText>
+                 </View>
+                 <TouchableOpacity style={styles.routeBtn}>
+                   <ThemedText style={styles.routeBtnText}>길찾기</ThemedText>
+                 </TouchableOpacity>
+               </View>
+             ) : (
+               <View style={styles.nearbyLoading}>
+                 <ActivityIndicator size="small" color={COLORS.primary} />
+                 <ThemedText style={styles.loadingText}>위치 정보를 확인 중입니다...</ThemedText>
+               </View>
+             )}
+          </View>
         </View>
       </ScrollView>
+
+      {/* FAB */}
+      <TouchableOpacity style={styles.fab}>
+        <Ionicons name="map" size={24} color="white" />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { paddingHorizontal: 20, paddingBottom: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, minHeight: 48 },
-  headerTitle: { fontSize: 28, fontWeight: '900', color: 'white' },
-  headerSub: { fontSize: 12, color: 'white', opacity: 0.8 },
-  searchBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  searchBarContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingHorizontal: 12, height: 44 },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, color: 'white', fontSize: 16, fontWeight: '600' },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  headerWrapper: { backgroundColor: 'white' },
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20, 
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7'
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  headerMascot: { width: 36, height: 36 },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: COLORS.primary, marginLeft: 4 },
+  headerIcon: { padding: 4 },
   content: { flex: 1 },
-  nearestSection: { marginTop: 24, paddingHorizontal: 16 },
-  nearestCard: { backgroundColor: 'white', padding: 16, borderRadius: 24, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
-  nearestTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  nearestLineBadge: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  nearestLineText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-  nearestInfo: { flex: 1, marginLeft: 12 },
-  nearestName: { fontSize: 18, fontWeight: '800', color: '#1C1C1E' },
-  nearestDistance: { fontSize: 12, color: '#8E8E93', marginTop: 1 },
-  nearestArrival: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', padding: 12, borderRadius: 12 },
-  arrivalMsg: { marginLeft: 8, fontSize: 14, color: '#48484A', fontWeight: '500', flex: 1 },
-  loadingNearest: { backgroundColor: 'white', padding: 20, borderRadius: 24, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
-  loadingText: { marginLeft: 10, color: '#8E8E93', fontSize: 14 },
-  section: { marginTop: 24, paddingHorizontal: 16 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingLeft: 4 },
-  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#8E8E93' },
-  countText: { fontSize: 13, color: '#AEAEB2', marginLeft: 6 },
-  lineItemContainer: { marginBottom: 12 },
-  lineItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 16, borderRadius: 24, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
-  expandedItem: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, shadowOpacity: 0 },
-  lineBadge: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
-  lineBadgeText: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-  lineInfo: { flex: 1, marginLeft: 16 },
-  lineHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  lineName: { fontSize: 17, fontWeight: '700', color: '#1C1C1E' },
-  statusTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginLeft: 8 },
-  statusTagText: { fontSize: 11, fontWeight: '700' },
-  lineMsg: { fontSize: 14, color: '#8E8E93', flex: 1 },
-  msgRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  transferDots: { flexDirection: 'row', gap: 4, marginLeft: 10 },
-  tDot: { width: 8, height: 8, borderRadius: 4 },
-  followBtn: { padding: 8 },
-  detailsContainer: { backgroundColor: 'white', padding: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, borderTopWidth: 1, borderTopColor: '#F2F2F7', marginTop: -1 },
-  detailsTitle: { fontSize: 13, fontWeight: '700', color: '#8E8E93', marginBottom: 15, textTransform: 'uppercase' },
-  transferStationRow: { marginBottom: 12 },
-  transferStationName: { fontSize: 15, fontWeight: '600', color: '#1C1C1E', marginBottom: 6 },
-  transferLineList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  miniLineTag: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, backgroundColor: '#F8F9FA' },
-  miniLineText: { fontSize: 11, fontWeight: '700', marginRight: 4 },
-  miniStatusDot: { width: 6, height: 6, borderRadius: 3 },
-  noDataText: { fontSize: 14, color: '#AEAEB2', textAlign: 'center', marginVertical: 10 },
-  viewCommunityBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, paddingVertical: 10, backgroundColor: '#FFF9F2', borderRadius: 12 },
-  viewCommunityText: { fontSize: 13, fontWeight: '700', color: '#FF9F43', marginRight: 5 },
-  emptySearchResult: { alignItems: 'center', justifyContent: 'center', marginTop: 40, opacity: 0.5 },
-  emptySearchText: { marginTop: 12, fontSize: 16, color: '#8E8E93' }
+  searchSection: { paddingHorizontal: 20, marginTop: 20 },
+  searchBar: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: COLORS.searchBg, 
+    borderRadius: 25, 
+    paddingHorizontal: 16, 
+    height: 50 
+  },
+  searchIcon: { marginRight: 10 },
+  searchText: { fontSize: 16, color: '#4A69BD', fontWeight: '500' },
+  noticeSection: { paddingHorizontal: 20, marginTop: 24 },
+  noticeCard: { 
+    borderRadius: 20, 
+    padding: 20, 
+    flexDirection: 'row', 
+    justifyContent: 'space-between',
+    overflow: 'hidden'
+  },
+  noticeContent: { flex: 1, zIndex: 1, paddingRight: 40 },
+  noticeTag: { 
+    backgroundColor: '#FDE68A', 
+    alignSelf: 'flex-start', 
+    paddingHorizontal: 8, 
+    paddingVertical: 2, 
+    borderRadius: 8,
+    marginBottom: 10
+  },
+  noticeTagText: { fontSize: 11, fontWeight: '700', color: '#8B6E2C' },
+  noticeTitle: { fontSize: 18, fontWeight: '800', color: 'white', marginBottom: 8 },
+  noticeSub: { fontSize: 13, color: 'white', opacity: 0.9, lineHeight: 18 },
+  noticeImageContainer: { position: 'absolute', right: -25, bottom: -30 },
+  characterImage: { 
+    width: 140, 
+    height: 140, 
+    opacity: 0.35, 
+    transform: [{ rotate: '-15deg' }] 
+  },
+  section: { marginTop: 30, paddingHorizontal: 20 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  sectionTitle: { fontSize: 22, fontWeight: '800', color: COLORS.textMain },
+  seeAllText: { fontSize: 14, color: COLORS.secondary, fontWeight: '600' },
+  recentList: { paddingRight: 20 },
+  recentCard: { 
+    backgroundColor: 'white', 
+    borderRadius: 20, 
+    padding: 16, 
+    marginRight: 16, 
+    width: 150,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3
+  },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  lineBadge: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  lineBadgeText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  cardBody: { marginTop: 8 },
+  stationName: { fontSize: 18, fontWeight: '800', color: COLORS.textMain },
+  stationNameEng: { fontSize: 12, color: COLORS.textSub, marginTop: 2 },
+  facilityGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 16 },
+  facilityItem: { width: (width - 40) / 4, alignItems: 'center', marginBottom: 20 },
+  facilityIconContainer: { 
+    width: 56, 
+    height: 56, 
+    borderRadius: 16, 
+    backgroundColor: '#F0F4F2', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  facilityName: { fontSize: 13, color: COLORS.textMain, fontWeight: '600' },
+  nearbyCard: { 
+    backgroundColor: 'white', 
+    borderRadius: 24, 
+    padding: 20,
+    borderLeftWidth: 6,
+    borderLeftColor: COLORS.primary,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 5
+  },
+  nearbyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  nearbyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textMain, marginLeft: 6 },
+  nearbyContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  nearbyStationName: { fontSize: 24, fontWeight: '900', color: COLORS.textMain },
+  nearbyStationInfo: { fontSize: 14, color: COLORS.textSub, marginTop: 4 },
+  routeBtn: { 
+    backgroundColor: COLORS.primary, 
+    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    borderRadius: 20 
+  },
+  routeBtnText: { color: 'white', fontSize: 14, fontWeight: '700' },
+  nearbyLoading: { padding: 10, alignItems: 'center' },
+  loadingText: { marginTop: 8, fontSize: 12, color: COLORS.textSub },
+  fab: { 
+    position: 'absolute', 
+    right: 20, 
+    bottom: 30, 
+    width: 60, 
+    height: 60, 
+    borderRadius: 30, 
+    backgroundColor: COLORS.primary, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8
+  }
 });

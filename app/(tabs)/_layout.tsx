@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 
@@ -12,31 +13,60 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: '#8E8E93',
         headerShown: false,
         tabBarButton: HapticTab,
+        tabBarStyle: {
+          height: 85,
+          paddingTop: 10,
+          borderTopWidth: 1,
+          borderTopColor: '#F2F2F7',
+          backgroundColor: 'white',
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+          marginBottom: 10,
+        }
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: '홈',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Home',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="home" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Search',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="search" color={color} />,
+        }}
+        listeners={{
+          tabPress: (e) => {
+            // Prevent default action and maybe show a coming soon or just navigate
+          },
         }}
       />
       <Tabs.Screen
         name="community"
         options={{
-          title: '커뮤니티',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.2.fill" color={color} />,
+          title: 'Community',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="people" color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: '설정',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gearshape.fill" color={color} />,
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="person" color={color} />,
         }}
       />
     </Tabs>
   );
 }
+
+const COLORS = {
+  primary: '#2E6D4D',
+};

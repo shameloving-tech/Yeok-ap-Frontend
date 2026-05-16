@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
@@ -6,47 +6,50 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
-    Image,
     RefreshControl,
     ScrollView,
     Share,
     StyleSheet,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    Dimensions,
+    Platform
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 
 import { ThemedText } from '@/components/themed-text';
+
+const { width } = Dimensions.get('window');
+
+const getHostUrl = () => {
+  if (Platform.OS === 'android') return '10.0.2.2';
+  return 'localhost';
+};
+
+const HOST = getHostUrl();
+const COLORS = {
+  primary: '#2E6D4D',
+  secondary: '#548C71',
+  background: '#F8F9FB',
+  cardBg: '#FFFFFF',
+  textMain: '#1C1C1E',
+  textSub: '#8E8E93',
+  accent: '#FF9F43',
+};
 
 const SUBWAY_LINES = [
   '1호선', '2호선', '3호선', '4호선', '5호선', '6호선', '7호선', '8호선', '9호선', 
   '수인분당선', '경의중앙선', '공항철도', '신분당선', '경춘선', '우이신설선', '신림선', 
   '김포골드라인', '경강선', '서해선', '인천1호선', '인천2호선', 'GTX-A'
 ];
-const BASE_URL = 'http://192.168.45.88:3000';
-
-const LINE_GROUPS = [
-  { 
-    title: '지하철 (1-9호선)', 
-    lines: ['1호선', '2호선', '3호선', '4호선', '5호선', '6호선', '7호선', '8호선', '9호선'] 
-  },
-  { 
-    title: '광역 / 급행', 
-    lines: ['수인분당선', '경의중앙선', '공항철도', '신분당선', '경춘선', '경강선', '서해선', 'GTX-A'] 
-  },
-  { 
-    title: '경전철 / 인천', 
-    lines: ['우이신설선', '신림선', '김포골드라인', '인천1호선', '인천2호선'] 
-  }
-];
+const BASE_URL = `http://${HOST}:3000`; // 로컬 환경에 맞게 자동 설정
 
 export default function CommunityScreen() {
+  const insets = useSafeAreaInsets();
   const [selectedLine, setSelectedLine] = useState('2호선');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLinePickerOpen, setIsLinePickerOpen] = useState(false);
-  const [lineSearch, setLineSearch] = useState('');
-  
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -131,48 +134,30 @@ export default function CommunityScreen() {
     }
   };
 
-  const renderGridItem = (line: string) => (
-    <TouchableOpacity 
-      key={line} 
-      style={[styles.gridItem, selectedLine === line && styles.activeGridItem]}
-      onPress={() => {
-        setSelectedLine(line);
-        setIsLinePickerOpen(false);
-        setLineSearch('');
-      }}
-    >
-      <ThemedText style={[styles.gridText, selectedLine === line && styles.activeGridText]}>{line}</ThemedText>
-    </TouchableOpacity>
-  );
-
-  const renderPickerContent = () => {
-    if (lineSearch) {
-      const filtered = SUBWAY_LINES.filter(l => l.includes(lineSearch));
-      return <View style={styles.gridContainer}>{filtered.map(renderGridItem)}</View>;
-    }
-    return LINE_GROUPS.map(group => (
-      <View key={group.title} style={styles.groupSection}>
-        <ThemedText style={styles.groupTitle}>{group.title}</ThemedText>
-        <View style={styles.gridContainer}>{group.lines.map(renderGridItem)}</View>
-      </View>
-    ));
+  const fixImageUrl = (url: string) => {
+    if (!url) return null;
+    return url.replace('localhost', HOST).replace('127.0.0.1', HOST);
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+  const renderHeader = () => (
+    <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <View style={styles.headerTopRow}>
+        <View style={styles.headerLeft}>
+          <Image 
+            source={require('@/assets/images/character_design.svg')} 
+            style={styles.headerMascot}
+            contentFit="contain"
+          />
           <ThemedText style={styles.headerTitle}>커뮤니티</ThemedText>
-          <TouchableOpacity style={styles.allLinesTrigger} onPress={() => setIsLinePickerOpen(true)}>
-            <ThemedText style={styles.allLinesText}>전체보기</ThemedText>
-            <Ionicons name="chevron-down" size={16} color="#FF9F43" />
-          </TouchableOpacity>
         </View>
+        <TouchableOpacity style={styles.headerIcon}>
+          <Ionicons name="notifications-outline" size={24} color={COLORS.textMain} />
+        </TouchableOpacity>
       </View>
-
-      <View style={{ height: 60, backgroundColor: '#f2f2f7' }}>
+      
+      <View style={styles.lineSelectorContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineSelector}>
-          {SUBWAY_LINES.slice(0, 8).map(line => (
+          {SUBWAY_LINES.map(line => (
             <TouchableOpacity 
               key={line} 
               style={[styles.lineChip, selectedLine === line && styles.activeLineChip]}
@@ -181,159 +166,284 @@ export default function CommunityScreen() {
               <ThemedText style={[styles.lineText, selectedLine === line && styles.activeLineText]}>{line}</ThemedText>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={styles.moreLinesBtn} onPress={() => setIsLinePickerOpen(true)}>
-            <ThemedText style={styles.moreLinesText}>더보기 +</ThemedText>
-          </TouchableOpacity>
         </ScrollView>
       </View>
+    </View>
+  );
 
-      {isLinePickerOpen && (
-        <View style={styles.linePickerOverlay}>
-          <SafeAreaView style={{ flex: 1 }}>
-            <View style={styles.pickerHeader}>
-              <ThemedText style={styles.pickerTitle}>노선 선택</ThemedText>
-              <TouchableOpacity onPress={() => { setIsLinePickerOpen(false); setLineSearch(''); }}>
-                <Ionicons name="close" size={28} color="#1C1C1E" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.searchBarContainer}>
-              <Ionicons name="search" size={20} color="#8E8E93" />
-              <TextInput style={styles.lineSearchInput} placeholder="노선 이름 검색" placeholderTextColor="#AEAEB2" value={lineSearch} onChangeText={setLineSearch} />
-            </View>
-            <ScrollView contentContainerStyle={styles.pickerScroll}>{renderPickerContent()}</ScrollView>
-          </SafeAreaView>
-        </View>
-      )}
+  return (
+    <View style={styles.container}>
+      {renderHeader()}
 
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#FF9F43" style={{ marginTop: 50 }} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ThemedText style={styles.loadingText}>소식을 가져오는 중...</ThemedText>
+        </View>
       ) : (
         <FlatList
           data={reports}
           keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={{ paddingBottom: 120, paddingTop: 10 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchReports(); }} />}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchReports(); }} tintColor={COLORS.primary} />}
           renderItem={({ item }) => (
             <View style={styles.feedCard}>
               <View style={styles.cardHeader}>
-                <Image source={{ uri: `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.id}` }} style={styles.profileImg} />
+                <Image 
+                  source={{ uri: `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.nickname || item.id}` }} 
+                  style={styles.profileImg} 
+                />
                 <View style={styles.headerTextWrapper}>
                   <ThemedText style={styles.userName}>{item.nickname || '익명'}</ThemedText>
-                  <ThemedText style={styles.timeText}>{selectedLine} {item.station_name} • 3min ago</ThemedText>
+                  <ThemedText style={styles.timeText}>{selectedLine} {item.station_name} • 방금 전</ThemedText>
                 </View>
-                <TouchableOpacity><Ionicons name="ellipsis-horizontal" size={20} color="#AEAEB2" /></TouchableOpacity>
+                <TouchableOpacity style={styles.moreIcon}>
+                  <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.textSub} />
+                </TouchableOpacity>
               </View>
+              
               <View style={styles.contentBody}>
                 <ThemedText style={styles.mainContentText}>{item.content}</ThemedText>
-                <ThemedText style={styles.statusText}>{item.direction} : {item.status}! 😰</ThemedText>
-              </View>
-              {item.image_url && <Image source={{ uri: item.image_url.replace('localhost', '192.168.45.88').replace('192.168.45.253', '192.168.45.88') }} style={styles.cardImage} />}
-              <View style={styles.cardFooter}>
-                <View style={styles.snsIcons}>
-                  <Ionicons name="logo-instagram" size={18} color="#8E8E93" style={styles.icon} />
-                  <Ionicons name="chatbubble-outline" size={18} color="#8E8E93" style={styles.icon} />
-                  <Ionicons name="logo-twitter" size={18} color="#8E8E93" style={styles.icon} />
+                <View style={styles.statusBadge}>
+                   <Ionicons name="warning-outline" size={14} color={COLORS.accent} />
+                   <ThemedText style={styles.statusText}>{item.direction} : {item.status}</ThemedText>
                 </View>
-                <TouchableOpacity style={styles.talkButton} onPress={() => handleShare(item)}>
-                  <ThemedText style={styles.talkText}>TALK</ThemedText>
+              </View>
+
+              {item.image_url && (
+                <Image 
+                  source={{ uri: fixImageUrl(item.image_url) }} 
+                  style={styles.cardImage} 
+                  contentFit="cover"
+                />
+              )}
+
+
+              <View style={styles.cardFooter}>
+                <View style={styles.interactionBar}>
+                  <TouchableOpacity style={styles.footerBtn}>
+                    <Ionicons name="heart-outline" size={20} color={COLORS.textSub} />
+                    <ThemedText style={styles.footerBtnText}>좋아요</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.footerBtn}>
+                    <Ionicons name="chatbubble-outline" size={20} color={COLORS.textSub} />
+                    <ThemedText style={styles.footerBtnText}>댓글</ThemedText>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity style={styles.shareBtn} onPress={() => handleShare(item)}>
+                  <Ionicons name="share-outline" size={20} color={COLORS.primary} />
                 </TouchableOpacity>
               </View>
             </View>
           )}
-          ListEmptyComponent={<ThemedText style={styles.emptyText}>{selectedLine}의 첫 번째 제보자가 되어보세요!</ThemedText>}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="chatbubbles-outline" size={64} color="#D1D1D6" />
+              <ThemedText style={styles.emptyText}>{selectedLine}의 첫 번째 제보자가 되어보세요!</ThemedText>
+            </View>
+          }
         />
       )}
 
       <TouchableOpacity style={styles.fab} onPress={() => setIsModalOpen(true)}>
-        <Ionicons name="megaphone" size={28} color="white" />
+        <Ionicons name="add" size={32} color="white" />
       </TouchableOpacity>
 
       {isModalOpen && (
         <View style={styles.modalOverlay}>
           <SafeAreaView style={{ flex: 1 }}>
             <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>{selectedLine} 제보하기</ThemedText>
-              <TouchableOpacity onPress={() => setIsModalOpen(false)}><Ionicons name="close" size={28} /></TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={{ padding: 20 }}>
-              <TextInput style={styles.input} placeholder="역 이름" value={station} onChangeText={setStation} />
-              <ThemedText style={styles.label}>방면 선택</ThemedText>
-              <View style={styles.directionRow}>
-                {['상행/내선', '하행/외선'].map(dir => (
-                  <TouchableOpacity key={dir} style={[styles.dirBtn, direction === dir && styles.activeDir]} onPress={() => setDirection(dir)}>
-                    <ThemedText style={[styles.dirText, direction === dir && styles.activeText]}>{dir === '상행/내선' ? '서울 방면' : '인천 방면'}</ThemedText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TextInput style={[styles.input, { height: 120, textAlignVertical: 'top' }]} placeholder="현재 상황은 어떤가요?" multiline value={content} onChangeText={setContent} />
-              <TouchableOpacity style={styles.imageBtn} onPress={pickImage}>
-                {image ? <Image source={{ uri: image }} style={styles.preview} /> : <View style={{ alignItems: 'center' }}><Ionicons name="camera" size={40} color="#CCC" /><ThemedText style={{ color: '#AAA', marginTop: 5 }}>사진 첨부 (선택)</ThemedText></View>}
+              <TouchableOpacity onPress={() => setIsModalOpen(false)}>
+                <Ionicons name="close" size={28} color={COLORS.textMain} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.submitBtn} onPress={submitReport}><ThemedText style={styles.submitBtnText}>제보 등록하기</ThemedText></TouchableOpacity>
+              <ThemedText style={styles.modalTitle}>{selectedLine} 제보</ThemedText>
+              <TouchableOpacity onPress={submitReport}>
+                <ThemedText style={styles.submitText}>등록</ThemedText>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              <View style={styles.inputGroup}>
+                <ThemedText style={styles.label}>역 이름</ThemedText>
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="어느 역인가요?" 
+                  placeholderTextColor="#AEAEB2"
+                  value={station} 
+                  onChangeText={setStation} 
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <ThemedText style={styles.label}>방면</ThemedText>
+                <View style={styles.directionRow}>
+                  {['상행/내선', '하행/외선'].map(dir => (
+                    <TouchableOpacity 
+                      key={dir} 
+                      style={[styles.dirBtn, direction === dir && styles.activeDir]} 
+                      onPress={() => setDirection(dir)}
+                    >
+                      <ThemedText style={[styles.dirText, direction === dir && styles.activeDirText]}>
+                        {dir === '상행/내선' ? '서울/내선 방면' : '인천/외선 방면'}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <ThemedText style={styles.label}>상세 내용</ThemedText>
+                <TextInput 
+                  style={[styles.input, styles.textArea]} 
+                  placeholder="현재 지하철 상황을 공유해주세요." 
+                  placeholderTextColor="#AEAEB2"
+                  multiline 
+                  value={content} 
+                  onChangeText={setContent} 
+                />
+              </View>
+
+              <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                {image ? (
+                  <Image source={{ uri: image }} style={styles.previewImage} />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Ionicons name="camera-outline" size={40} color="#AEAEB2" />
+                    <ThemedText style={styles.imagePlaceholderText}>사진 첨부하기</ThemedText>
+                  </View>
+                )}
+              </TouchableOpacity>
             </ScrollView>
           </SafeAreaView>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f2f2f7' },
-  header: { paddingHorizontal: 20, paddingTop: 20, backgroundColor: '#f2f2f7' },
-  headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
-  headerTitle: { fontSize: 34, fontWeight: '800', color: '#1C1C1E', lineHeight: 41 },
-  allLinesTrigger: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 15, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2, gap: 4 },
-  allLinesText: { fontSize: 13, fontWeight: '700', color: '#FF9F43' },
-  lineSelector: { paddingHorizontal: 20, alignItems: 'center', gap: 10, paddingBottom: 10 },
-  lineChip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 25, backgroundColor: '#e5e5ea' },
-  activeLineChip: { backgroundColor: '#FF9F43' },
-  lineText: { color: '#8e8e93', fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  headerWrapper: { backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#F2F2F7' },
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20, 
+    paddingVertical: 12 
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  headerMascot: { width: 36, height: 36 },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: COLORS.primary, marginLeft: 4 },
+  headerIcon: { padding: 4 },
+  lineSelectorContainer: { paddingBottom: 12 },
+  lineSelector: { paddingHorizontal: 20, gap: 8 },
+  lineChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2F2F7' },
+  activeLineChip: { backgroundColor: COLORS.primary },
+  lineText: { color: COLORS.textSub, fontWeight: '600', fontSize: 13 },
   activeLineText: { color: 'white' },
-  moreLinesBtn: { paddingHorizontal: 15, paddingVertical: 10, borderRadius: 25, backgroundColor: 'white', borderWidth: 1, borderColor: '#e5e5ea' },
-  moreLinesText: { color: '#FF9F43', fontWeight: 'bold' },
-  linePickerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'white', zIndex: 200 },
-  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, alignItems: 'center', borderBottomWidth: 0.5, borderBottomColor: '#EEE' },
-  pickerTitle: { fontSize: 24, fontWeight: '900', color: '#1C1C1E' },
-  searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', margin: 20, paddingHorizontal: 15, borderRadius: 12, height: 50 },
-  lineSearchInput: { flex: 1, marginLeft: 10, fontSize: 16, color: '#1C1C1E' },
-  pickerScroll: { paddingBottom: 40 },
-  groupSection: { marginBottom: 25 },
-  groupTitle: { fontSize: 15, fontWeight: '700', color: '#1C1C1E', marginLeft: 20, marginBottom: 12 },
-  gridContainer: { paddingHorizontal: 15, flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  gridItem: { width: '31%', paddingVertical: 15, backgroundColor: '#F2F2F7', borderRadius: 15, alignItems: 'center' },
-  activeGridItem: { backgroundColor: '#FF9F43' },
-  gridText: { fontSize: 13, fontWeight: '600', color: '#8E8E93' },
-  activeGridText: { color: 'white' },
-  fab: { position: 'absolute', bottom: 30, right: 30, width: 64, height: 64, borderRadius: 32, backgroundColor: '#FF9F43', justifyContent: 'center', alignItems: 'center', elevation: 8, shadowOpacity: 0.3, shadowRadius: 5 },
-  feedCard: { backgroundColor: 'white', marginHorizontal: 16, marginBottom: 20, padding: 20, borderRadius: 24, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 15, elevation: 3, position: 'relative' },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  profileImg: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#F2F2F7' },
+  listContent: { padding: 16, paddingBottom: 100 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, color: COLORS.textSub, fontSize: 14 },
+  feedCard: { 
+    backgroundColor: 'white', 
+    borderRadius: 24, 
+    padding: 16, 
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  profileImg: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7' },
   headerTextWrapper: { flex: 1, marginLeft: 12 },
-  userName: { fontSize: 16, fontWeight: '700', color: '#1C1C1E' },
-  timeText: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
-  contentBody: { marginBottom: 15 },
-  mainContentText: { fontSize: 18, fontWeight: '800', color: '#1C1C1E', marginBottom: 6, lineHeight: 24 },
-  statusText: { fontSize: 14, color: '#FF9F43', fontWeight: '600' },
-  cardImage: { width: '100%', height: 220, borderRadius: 16, marginBottom: 15 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
-  snsIcons: { flexDirection: 'row', gap: 15 },
-  icon: { marginRight: 5 },
-  talkButton: { backgroundColor: '#FFD600', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', position: 'absolute', right: 15, bottom: 15, elevation: 5, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5 },
-  talkText: { fontSize: 11, fontWeight: '900', color: '#3A3A3C' },
-  modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'white', zIndex: 100 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, alignItems: 'center', borderBottomWidth: 0.5, borderBottomColor: '#EEE' },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: '#1C1C1E' },
-  input: { backgroundColor: '#f2f2f7', borderRadius: 12, padding: 16, fontSize: 16, marginBottom: 20 },
-  label: { fontSize: 16, fontWeight: 'bold', marginBottom: 12, color: '#1c1c1e' },
-  directionRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  dirBtn: { flex: 1, padding: 15, borderRadius: 12, borderWidth: 1.5, borderColor: '#e5e5ea', alignItems: 'center' },
-  activeDir: { backgroundColor: '#FFF4E6', borderColor: '#FF9F43' },
-  dirText: { fontWeight: '600', color: '#8e8e93' },
-  activeText: { color: '#FF9F43' },
-  imageBtn: { height: 180, backgroundColor: '#f2f2f7', borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginBottom: 30, overflow: 'hidden' },
-  preview: { width: '100%', height: '100%' },
-  submitBtn: { backgroundColor: '#FF9F43', padding: 20, borderRadius: 15, alignItems: 'center' },
-  submitBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-  emptyText: { textAlign: 'center', marginTop: 100, color: '#aeaeb2', fontSize: 16 }
+  userName: { fontSize: 16, fontWeight: '700', color: COLORS.textMain },
+  timeText: { fontSize: 12, color: COLORS.textSub, marginTop: 2 },
+  moreIcon: { padding: 4 },
+  contentBody: { marginBottom: 16 },
+  mainContentText: { fontSize: 16, color: COLORS.textMain, lineHeight: 22, marginBottom: 8 },
+  statusBadge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#FFF9F2', 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    borderRadius: 8,
+    alignSelf: 'flex-start'
+  },
+  statusText: { fontSize: 12, color: COLORS.accent, fontWeight: '700', marginLeft: 4 },
+  cardImage: { width: '100%', height: 200, borderRadius: 16, marginBottom: 16 },
+  cardFooter: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F2F2F7'
+  },
+  interactionBar: { flexDirection: 'row', gap: 16 },
+  footerBtn: { flexDirection: 'row', alignItems: 'center' },
+  footerBtnText: { fontSize: 13, color: COLORS.textSub, marginLeft: 4, fontWeight: '500' },
+  shareBtn: { padding: 4 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
+  emptyText: { marginTop: 16, fontSize: 15, color: COLORS.textSub, textAlign: 'center' },
+  fab: { 
+    position: 'absolute', 
+    bottom: 30, 
+    right: 20, 
+    width: 60, 
+    height: 60, 
+    borderRadius: 30, 
+    backgroundColor: COLORS.primary, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8
+  },
+  modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'white', zIndex: 1000 },
+  modalHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: 20, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#F2F2F7' 
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textMain },
+  submitText: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
+  modalScroll: { padding: 20 },
+  inputGroup: { marginBottom: 24 },
+  label: { fontSize: 15, fontWeight: '700', color: COLORS.textMain, marginBottom: 10 },
+  input: { 
+    backgroundColor: '#F2F2F7', 
+    borderRadius: 12, 
+    padding: 16, 
+    fontSize: 15, 
+    color: COLORS.textMain 
+  },
+  textArea: { height: 120, textAlignVertical: 'top' },
+  directionRow: { flexDirection: 'row', gap: 10 },
+  dirBtn: { 
+    flex: 1, 
+    padding: 14, 
+    borderRadius: 12, 
+    borderWidth: 1.5, 
+    borderColor: '#F2F2F7', 
+    alignItems: 'center' 
+  },
+  activeDir: { backgroundColor: '#F0F4F2', borderColor: COLORS.primary },
+  dirText: { fontSize: 14, fontWeight: '600', color: COLORS.textSub },
+  activeDirText: { color: COLORS.primary },
+  imagePicker: { 
+    height: 200, 
+    backgroundColor: '#F2F2F7', 
+    borderRadius: 16, 
+    overflow: 'hidden', 
+    marginBottom: 40 
+  },
+  imagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  imagePlaceholderText: { marginTop: 8, color: '#AEAEB2', fontSize: 14 },
+  previewImage: { width: '100%', height: '100%' }
 });
