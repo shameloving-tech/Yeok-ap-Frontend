@@ -23,12 +23,6 @@ import { ThemedText } from '@/components/themed-text';
 
 const { width } = Dimensions.get('window');
 
-const getHostUrl = () => {
-  if (Platform.OS === 'android') return '10.0.2.2';
-  return 'localhost';
-};
-
-const HOST = getHostUrl();
 const COLORS = {
   primary: '#2E6D4D',
   secondary: '#548C71',
@@ -44,7 +38,9 @@ const SUBWAY_LINES = [
   '수인분당선', '경의중앙선', '공항철도', '신분당선', '경춘선', '우이신설선', '신림선', 
   '김포골드라인', '경강선', '서해선', '인천1호선', '인천2호선', 'GTX-A'
 ];
-const BASE_URL = `http://${HOST}:3000`; // 로컬 환경에 맞게 자동 설정
+
+// 배포된 Render 서버 주소로 변경
+const BASE_URL = 'https://yeok-ap-backend.onrender.com';
 
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
