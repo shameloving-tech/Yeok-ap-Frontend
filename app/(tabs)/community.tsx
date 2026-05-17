@@ -136,7 +136,14 @@ export default function CommunityScreen() {
 
   const fixImageUrl = (url: string) => {
     if (!url) return null;
-    return url.replace('localhost', HOST).replace('127.0.0.1', HOST);
+    
+    // 만약 이미 http로 시작하는 절대 경로라면, 호스트 부분을 BASE_URL의 호스트로 교체
+    if (url.startsWith('http')) {
+      return url.replace(/^http:\/\/[^/]+/, BASE_URL);
+    }
+    
+    // /rails/active_storage/... 같은 상대 경로라면 BASE_URL을 앞에 붙여줌
+    return `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
   const renderHeader = () => (
