@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
+import Toast from 'react-native-toast-message';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AnimatedSplashScreen } from '@/components/animated-splash-screen';
@@ -74,6 +75,7 @@ export default function RootLayout() {
         {showAnimatedSplash && <AnimatedSplashScreen isExiting={isExiting} />}
       </View>
       <StatusBar style="auto" />
+      <Toast />
     </ThemeProvider>
   );
 }
