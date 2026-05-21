@@ -6,7 +6,6 @@ import { View, StyleSheet } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
-import { toastConfig } from '@/components/toast-config';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AnimatedSplashScreen } from '@/components/animated-splash-screen';
@@ -77,7 +76,7 @@ export default function RootLayout() {
         {showAnimatedSplash && <AnimatedSplashScreen isExiting={isExiting} />}
       </View>
       <StatusBar style="auto" />
-      <Toast config={toastConfig} topOffset={60} />
+      <Toast topOffset={60} />
     </ThemeProvider>
   );
 }
