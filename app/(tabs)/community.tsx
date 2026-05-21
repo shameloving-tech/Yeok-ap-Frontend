@@ -259,6 +259,7 @@ export default function CommunityScreen() {
             <ThemedText style={styles.circleLineText}>{getLineNumber(item.line_name)}</ThemedText>
           </View>
           <ThemedText style={styles.feedMeta}>{item.station_name} · {getTimeAgo(item.created_at)}</ThemedText>
+          <ThemedText style={styles.feedNickname}>{item.nickname || '익명'}</ThemedText>
           <View style={styles.tagBadge}><ThemedText style={styles.tagText}>블라블라</ThemedText></View>
         </View>
         <ThemedText style={styles.feedTitle}>{item.content.split('\n')[0]}</ThemedText>
@@ -332,7 +333,7 @@ export default function CommunityScreen() {
                   <View style={[styles.circleLineIconSmall, { backgroundColor: getLineColor(item.line_name) }]}>
                     <ThemedText style={styles.circleLineTextSmall}>{getLineNumber(item.line_name)}</ThemedText>
                   </View>
-                  <ThemedText style={styles.cardMeta}>{item.station_name} · {getTimeAgo(item.created_at)}</ThemedText>
+                  <ThemedText style={styles.cardMeta}>{item.station_name} · {getTimeAgo(item.created_at)} · {item.nickname || '익명'}</ThemedText>
                 </View>
                 <ThemedText style={styles.popularCardTitle} numberOfLines={1}>{item.content.split('\n')[0]}</ThemedText>
                 <ThemedText style={styles.popularCardBody} numberOfLines={2}>{item.content}</ThemedText>
@@ -659,6 +660,7 @@ const styles = StyleSheet.create({
   circleLineIcon: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   circleLineText: { color: 'white', fontSize: 12, fontWeight: '800' },
   feedMeta: { flex: 1, fontSize: 14, color: COLORS.textSub, fontWeight: '500' },
+  feedNickname: { fontSize: 13, color: COLORS.textSub, fontWeight: '600' },
   tagBadge: { backgroundColor: COLORS.border, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   tagText: { fontSize: 11, color: COLORS.textSub, fontWeight: '700' },
   feedTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textMain, marginBottom: 8 },
