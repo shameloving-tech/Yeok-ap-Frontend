@@ -224,6 +224,8 @@ export default function CommunityScreen() {
       formData.append('report[direction]', direction);
       formData.append('report[content]', fullContent);
       formData.append('report[status]', '혼잡');
+      const nickname = (await AsyncStorage.getItem('user_nickname')) || '익명';
+      formData.append('report[nickname]', nickname);
       if (image) {
         const filename = image.split('/').pop() || 'image.jpg';
         formData.append('report[image]', { uri: image, name: filename, type: 'image/jpeg' } as any);
