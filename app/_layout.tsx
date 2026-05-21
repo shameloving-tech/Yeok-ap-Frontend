@@ -68,7 +68,7 @@ export default function RootLayout() {
         {/* 메인 앱 컨텐츠 (스플래시 뒤에 미리 렌더링) */}
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen name="modal" options={{ headerShown: false }} />
           <Stack.Screen name="report/[id]" options={{ headerShown: false }} />
         </Stack>
 
