@@ -1,6 +1,9 @@
 name: Build iOS IPA (Production)
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -26,4 +29,4 @@ jobs:
       - name: Build iOS IPA
         run: eas build --platform ios --profile production --non-interactive
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: dF8vXz4_slj0nrACcsPP16uQU4bUF4j-RMZg7vXm
