@@ -121,23 +121,32 @@ export default function CommunityScreen() {
   // ─── 좋아요 ──────────────────────────────────────────────
   const handleLike = async (reportId: number) => {
     const isLiked = likedReports.has(reportId);
+
+    // 즉시 UI 반영 (낙관적 업데이트)
+    const updatedSet = new Set(likedReports);
+    isLiked ? updatedSet.delete(reportId) : updatedSet.add(reportId);
+    setLikedReports(updatedSet);
+    setReports(prev => prev.map(r =>
+      r.id === reportId ? { ...r, likes_count: (r.likes_count || 0) + (isLiked ? -1 : 1) } : r
+    ));
+
     try {
       const res = await fetch(`${BASE_URL}/reports/${reportId}/like`, {
         method: isLiked ? 'DELETE' : 'POST',
       });
-      if (!res.ok) return;
+      if (!res.ok) throw new Error();
       const data = await res.json();
-
-      const updated = new Set(likedReports);
-      isLiked ? updated.delete(reportId) : updated.add(reportId);
-      setLikedReports(updated);
-      await AsyncStorage.setItem(LIKED_REPORTS_KEY, JSON.stringify([...updated]));
-
-      setReports(prev =>
-        prev.map(r => r.id === reportId ? { ...r, likes_count: data.likes_count } : r)
-      );
-    } catch (e) {
-      console.error(e);
+      await AsyncStorage.setItem(LIKED_REPORTS_KEY, JSON.stringify([...updatedSet]));
+      // 서버 실제 값으로 동기화
+      setReports(prev => prev.map(r =>
+        r.id === reportId ? { ...r, likes_count: data.likes_count } : r
+      ));
+    } catch {
+      // 실패 시 롤백
+      setLikedReports(likedReports);
+      setReports(prev => prev.map(r =>
+        r.id === reportId ? { ...r, likes_count: (r.likes_count || 0) + (isLiked ? 1 : -1) } : r
+      ));
     }
   };
 

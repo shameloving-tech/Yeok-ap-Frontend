@@ -93,24 +93,31 @@ export default function ReportDetailScreen() {
   };
 
   const handleLike = async () => {
+    const prevLiked = isLiked;
+    const prevCount = likesCount;
+
+    // 즉시 UI 반영
+    setIsLiked(!isLiked);
+    setLikesCount(prev => prev + (isLiked ? -1 : 1));
+
     try {
       const res = await fetch(`${BASE_URL}/reports/${id}/like`, {
         method: isLiked ? 'DELETE' : 'POST',
       });
-      if (!res.ok) return;
+      if (!res.ok) throw new Error();
       const data = await res.json();
 
       const raw = await AsyncStorage.getItem(LIKED_REPORTS_KEY);
       const liked: number[] = raw ? JSON.parse(raw) : [];
-      const updated = isLiked
+      const updated = prevLiked
         ? liked.filter(l => l !== Number(id))
         : [...liked, Number(id)];
       await AsyncStorage.setItem(LIKED_REPORTS_KEY, JSON.stringify(updated));
-
-      setIsLiked(!isLiked);
       setLikesCount(data.likes_count);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // 실패 시 롤백
+      setIsLiked(prevLiked);
+      setLikesCount(prevCount);
     }
   };
 
