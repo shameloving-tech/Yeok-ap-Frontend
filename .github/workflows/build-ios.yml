@@ -1,4 +1,4 @@
-name: Build iOS IPA (Production)
+name: Build Android APK (Production)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: EAS iOS Production Build
+    name: EAS Android APK Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -26,7 +26,7 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Build iOS IPA
-        run: eas build --platform ios --profile production --non-interactive
+      - name: Build Android APK
+        run: eas build --platform android --profile preview --non-interactive
         env:
           EXPO_TOKEN: dF8vXz4_slj0nrACcsPP16uQU4bUF4j-RMZg7vXm
