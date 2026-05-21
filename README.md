@@ -1,45 +1,62 @@
-# 🚉 역앞 (Yeok-Ap) - 내 손안의 지하철 정보 커뮤니티
+# 🚉 역앞 (Yeok-Ap)
 
-**역앞(Yeok-Ap)**은 지하철 이용객들이 실시간 정보를 공유하고, 복잡한 역사 내 정보를 한눈에 확인할 수 있도록 돕는 서비스입니다.
+지하철 이용객들이 실시간 혼잡도를 확인하고 정보를 공유하는 커뮤니티 앱입니다.
 
-## 📱 서비스 소개
-"지하철 역 앞에서 만나는 실시간 정보와 우리들의 이야기"
-단순한 시간표 조회를 넘어, 현재 지하철의 혼잡도, 돌발 상황 등을 사용자들끼리 실시간으로 공유하고 소통할 수 있는 플랫폼을 지향합니다.
+## 주요 기능
 
-## ✨ 주요 기능
-- **실시간 혼잡도 리포트**: 사용자들이 직접 보고하는 실시간 칸별 혼잡도 확인
-- **스마트 시간표**: 현재 위치 기반 가장 가까운 지하철역 정보 및 실시간 도착 예정 시간
-- **지하철 커뮤니티**: 특정 역이나 노선별로 소통할 수 있는 자유 게시판
-- **개인화 설정**: 자주 가는 역 즐겨찾기 및 맞춤형 알림 서비스
+- **실시간 혼잡도**: ActionCable(WebSocket)으로 노선별 혼잡도 실시간 수신 (여유/보통/혼잡/폭발)
+- **즐겨찾기 노선**: 관심 노선만 필터링해서 보기
+- **커뮤니티 제보**: 호선·역·방면 선택 후 사진 포함 제보 작성
+- **게시글 상세**: 좋아요 토글, 댓글 작성
+- **역 검색**: 역 이름으로 검색 → 최근 본 역 저장
+- **현재 위치 기반 가장 가까운 역** 표시
 
-## 🛠 기술 스택
-- **Framework**: React Native (Expo)
-- **Language**: TypeScript
-- **State Management**: React Hooks & Context API
-- **Real-time**: ActionCable (Websocket) integration
-- **Styling**: Nativewind / Styled-components (Vanilla CSS 기반)
-- **Navigation**: Expo Router (File-based Routing)
+## 기술 스택
 
-## 🚀 시작하기
+| 구분 | 내용 |
+|------|------|
+| Framework | Expo SDK 54 (React Native) |
+| Language | TypeScript |
+| Navigation | Expo Router (파일 기반) |
+| Real-time | @rails/actioncable (WebSocket) |
+| 로컬 저장 | AsyncStorage |
+| 이미지 | expo-image, expo-image-picker |
 
-### 환경 설정
-1. 프로젝트를 클론합니다.
-2. 의존성 패키지를 설치합니다.
-   ```bash
-   npm install
-   ```
+## 환경 변수
 
-### 실행 방법
-1. 개발 서버를 구동합니다.
-   ```bash
-   npx expo start
-   ```
-2. Expo Go 앱을 통해 QR 코드를 스캔하거나, iOS/Android 에뮬레이터를 사용하여 앱을 확인합니다.
+| 변수 | 설명 |
+|------|------|
+| `EXPO_PUBLIC_API_HOST` | 백엔드 REST API 베이스 URL |
+| `EXPO_PUBLIC_WS_URL` | ActionCable WebSocket URL |
 
-## 🎨 디자인 가이드
-- **Main Color**: Subway Green (#2D6A4F)
-- **Typography**: Pretendard / System Default
-- **Assets**: 커스텀 제작된 지하철 캐릭터 애니메이션 스플래시 화면 적용
+설정하지 않으면 개발 환경에서 로컬 서버(`http://<devHost>:3000`)에 자동 연결됩니다.
+
+## 실행
+
+```bash
+npm install
+
+# 로컬 백엔드 연결
+npx expo start
+
+# 프로덕션 백엔드 연결 (Render)
+EXPO_PUBLIC_API_HOST=https://yeok-ap-backend.onrender.com \
+EXPO_PUBLIC_WS_URL=wss://yeok-ap-backend.onrender.com/cable \
+npx expo start --tunnel
+```
+
+## 화면 구조
+
+```
+app/
+├── (tabs)/
+│   ├── index.tsx        # 홈 — 실시간 혼잡도 목록, 즐겨찾기 필터, 최근 본 역
+│   ├── community.tsx    # 커뮤니티 피드, 제보 작성 모달
+│   ├── search.tsx       # 역 검색
+│   └── settings.tsx     # 설정 / 프로필
+├── report/[id].tsx      # 게시글 상세 (좋아요, 댓글)
+└── modal.tsx            # 닉네임 변경
+```
 
 ---
-© 2026 Yeok-Ap Team. All rights reserved.
+© 2026 Yeok-Ap
