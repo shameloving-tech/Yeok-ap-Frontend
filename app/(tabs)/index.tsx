@@ -45,6 +45,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { stationList, isConnected } = useSubwayData();
   const [followedLines, setFollowedLines] = useState<string[]>([]);
+  const [showOnlyFollowed, setShowOnlyFollowed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
   const [recentStations, setRecentStations] = useState<any[]>([]);
@@ -258,33 +259,87 @@ export default function HomeScreen() {
               <ThemedText style={styles.liveText}>{isConnected ? 'LIVE' : 'OFF'}</ThemedText>
             </View>
           </View>
+
+          {/* 전체 / 즐겨찾기 토글 */}
+          <View style={styles.filterToggle}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, !showOnlyFollowed && styles.toggleBtnActive]}
+              onPress={() => setShowOnlyFollowed(false)}
+            >
+              <ThemedText style={[styles.toggleBtnText, !showOnlyFollowed && styles.toggleBtnTextActive]}>
+                전체
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, showOnlyFollowed && styles.toggleBtnActive]}
+              onPress={() => setShowOnlyFollowed(true)}
+            >
+              <Ionicons
+                name="heart"
+                size={12}
+                color={showOnlyFollowed ? 'white' : COLORS.textSub}
+                style={{ marginRight: 4 }}
+              />
+              <ThemedText style={[styles.toggleBtnText, showOnlyFollowed && styles.toggleBtnTextActive]}>
+                즐겨찾기 {followedLines.length > 0 ? `(${followedLines.length})` : ''}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+
           {stationList.length === 0 ? (
             <View style={styles.congestionLoading}>
               <ActivityIndicator color={COLORS.primary} />
               <ThemedText style={styles.loadingText}>노선 데이터 수신 중...</ThemedText>
             </View>
-          ) : (
-            <View style={styles.congestionList}>
-              {filteredLines.map((line, idx) => (
-                <View key={line.id} style={[styles.lineRow, idx === filteredLines.length - 1 && { borderBottomWidth: 0 }]}>
-                  <View style={[styles.lineCircle, { backgroundColor: line.color }]}>
-                    <ThemedText style={styles.lineCircleText}>
-                      {line.name.match(/(\d+)/)?.[1] || line.name.slice(0, 2)}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.lineInfo}>
-                    <ThemedText style={styles.lineName}>{line.name}</ThemedText>
-                    <ThemedText style={styles.lineMsg} numberOfLines={1}>{line.msg}</ThemedText>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(line.status) + '22' }]}>
-                    <ThemedText style={[styles.statusText, { color: getStatusColor(line.status) }]}>
-                      {line.status}
-                    </ThemedText>
-                  </View>
+          ) : (() => {
+            const displayLines = showOnlyFollowed
+              ? filteredLines.filter(l => followedLines.includes(l.name))
+              : filteredLines;
+
+            if (showOnlyFollowed && displayLines.length === 0) {
+              return (
+                <View style={styles.emptyFollowed}>
+                  <Ionicons name="heart-outline" size={36} color={COLORS.textSub} />
+                  <ThemedText style={styles.emptyFollowedText}>즐겨찾기한 노선이 없어요</ThemedText>
+                  <ThemedText style={styles.emptyFollowedSub}>노선 목록에서 ♥를 눌러 추가하세요</ThemedText>
                 </View>
-              ))}
-            </View>
-          )}
+              );
+            }
+
+            return (
+              <View style={styles.congestionList}>
+                {displayLines.map((line, idx) => (
+                  <View key={line.id} style={[styles.lineRow, idx === displayLines.length - 1 && { borderBottomWidth: 0 }]}>
+                    <View style={[styles.lineCircle, { backgroundColor: line.color }]}>
+                      <ThemedText style={styles.lineCircleText}>
+                        {line.name.match(/(\d+)/)?.[1] || line.name.slice(0, 2)}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.lineInfo}>
+                      <ThemedText style={styles.lineName}>{line.name}</ThemedText>
+                      <ThemedText style={styles.lineMsg} numberOfLines={1}>{line.msg}</ThemedText>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => toggleFollow(line.name)}
+                      style={{ marginRight: 10 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name={followedLines.includes(line.name) ? 'heart' : 'heart-outline'}
+                        size={18}
+                        color={followedLines.includes(line.name) ? '#FF3B30' : '#C7C7CC'}
+                      />
+                    </TouchableOpacity>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(line.status) + '22' }]}>
+                      <ThemedText style={[styles.statusText, { color: getStatusColor(line.status) }]}>
+                        {line.status}
+                      </ThemedText>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
         </View>
 
         {/* Recent Stations */}
@@ -498,6 +553,27 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 8, fontSize: 12, color: COLORS.textSub },
 
   // 노선 혼잡도
+  filterToggle: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.border,
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 14,
+    alignSelf: 'flex-start',
+  },
+  toggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  toggleBtnActive: { backgroundColor: COLORS.primary },
+  toggleBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.textSub },
+  toggleBtnTextActive: { color: 'white' },
+  emptyFollowed: { alignItems: 'center', paddingVertical: 32, gap: 8 },
+  emptyFollowedText: { fontSize: 15, fontWeight: '700', color: COLORS.textSub },
+  emptyFollowedSub: { fontSize: 13, color: COLORS.textSub },
   liveDot: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   liveText: { fontSize: 11, fontWeight: '800', color: 'white' },
   congestionLoading: { paddingVertical: 24, alignItems: 'center', gap: 10 },
