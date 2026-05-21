@@ -104,15 +104,16 @@ export default function CommunityScreen() {
 
   // ─── 좋아요 ──────────────────────────────────────────────
   const handleLike = async (reportId: number) => {
-    if (likedReports.has(reportId)) return;
-
+    const isLiked = likedReports.has(reportId);
     try {
-      const res = await fetch(`${BASE_URL}/reports/${reportId}/like`, { method: 'POST' });
+      const res = await fetch(`${BASE_URL}/reports/${reportId}/like`, {
+        method: isLiked ? 'DELETE' : 'POST',
+      });
       if (!res.ok) return;
       const data = await res.json();
 
       const updated = new Set(likedReports);
-      updated.add(reportId);
+      isLiked ? updated.delete(reportId) : updated.add(reportId);
       setLikedReports(updated);
       await AsyncStorage.setItem(LIKED_REPORTS_KEY, JSON.stringify([...updated]));
 
