@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -127,6 +128,7 @@ export default function ReportDetailScreen() {
         const newComment = await res.json();
         setComments(prev => [...prev, newComment]);
         setCommentText('');
+        Keyboard.dismiss();
         if (report) setReport({ ...report, comments_count: (report.comments_count || 0) + 1 });
       }
     } catch (e) {
