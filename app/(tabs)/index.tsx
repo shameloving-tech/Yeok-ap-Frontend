@@ -147,7 +147,7 @@ export default function HomeScreen() {
       } else if (worstStation.arrival_message) {
         msg = worstStation.arrival_message;
       }
-      return { ...line, status: worstStation.congestion_level, msg, transfers, detailedTransfers };
+      return { ...line, status: worstStation.congestion_level || '여유', msg, transfers, detailedTransfers };
     });
   }, [stationList]);
 
