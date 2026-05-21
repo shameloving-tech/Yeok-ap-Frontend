@@ -250,6 +250,43 @@ export default function HomeScreen() {
           </LinearGradient>
         </View>
 
+        {/* 노선 혼잡도 */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ThemedText style={styles.sectionTitle}>실시간 혼잡도</ThemedText>
+            <View style={[styles.liveDot, { backgroundColor: isConnected ? '#34C759' : '#FF3B30' }]}>
+              <ThemedText style={styles.liveText}>{isConnected ? 'LIVE' : 'OFF'}</ThemedText>
+            </View>
+          </View>
+          {stationList.length === 0 ? (
+            <View style={styles.congestionLoading}>
+              <ActivityIndicator color={COLORS.primary} />
+              <ThemedText style={styles.loadingText}>노선 데이터 수신 중...</ThemedText>
+            </View>
+          ) : (
+            <View style={styles.congestionList}>
+              {filteredLines.map((line, idx) => (
+                <View key={line.id} style={[styles.lineRow, idx === filteredLines.length - 1 && { borderBottomWidth: 0 }]}>
+                  <View style={[styles.lineCircle, { backgroundColor: line.color }]}>
+                    <ThemedText style={styles.lineCircleText}>
+                      {line.name.match(/(\d+)/)?.[1] || line.name.slice(0, 2)}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.lineInfo}>
+                    <ThemedText style={styles.lineName}>{line.name}</ThemedText>
+                    <ThemedText style={styles.lineMsg} numberOfLines={1}>{line.msg}</ThemedText>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(line.status) + '22' }]}>
+                    <ThemedText style={[styles.statusText, { color: getStatusColor(line.status) }]}>
+                      {line.status}
+                    </ThemedText>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Recent Stations */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -459,6 +496,40 @@ const styles = StyleSheet.create({
   routeBtnText: { color: 'white', fontSize: 14, fontWeight: '700' },
   nearbyLoading: { padding: 10, alignItems: 'center' },
   loadingText: { marginTop: 8, fontSize: 12, color: COLORS.textSub },
+
+  // 노선 혼잡도
+  liveDot: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  liveText: { fontSize: 11, fontWeight: '800', color: 'white' },
+  congestionLoading: { paddingVertical: 24, alignItems: 'center', gap: 10 },
+  congestionList: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  lineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  lineCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  lineCircleText: { color: 'white', fontSize: 13, fontWeight: '800' },
+  lineInfo: { flex: 1 },
+  lineName: { fontSize: 14, fontWeight: '700', color: COLORS.textMain },
+  lineMsg: { fontSize: 12, color: COLORS.textSub, marginTop: 1 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  statusText: { fontSize: 12, fontWeight: '800' },
   fab: {
     position: 'absolute',
     right: 20,
