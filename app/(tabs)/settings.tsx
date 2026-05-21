@@ -7,19 +7,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Image } from 'expo-image';
 
 import { ThemedText } from '@/components/themed-text';
+import { APP_COLORS as COLORS } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
-
-const COLORS = {
-  primary: '#2E6D4D',
-  secondary: '#548C71',
-  background: '#F8F9FB',
-  cardBg: '#FFFFFF',
-  textMain: '#1C1C1E',
-  textSub: '#8E8E93',
-  accent: '#FF9F43',
-  danger: '#FF3B30',
-};
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
