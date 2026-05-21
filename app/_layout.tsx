@@ -69,6 +69,7 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen name="report/[id]" options={{ headerShown: false }} />
         </Stack>
 
         {/* 커스텀 애니메이션 스플래시 (최상단) */}

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import {
@@ -225,7 +226,7 @@ export default function CommunityScreen() {
   const renderFeedCard = ({ item }: { item: any }) => {
     const isLiked = likedReports.has(item.id);
     return (
-      <View style={styles.feedCard}>
+      <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(`/report/${item.id}`)} style={styles.feedCard}>
         <View style={styles.feedTopRow}>
           <View style={[styles.circleLineIcon, { backgroundColor: getLineColor(item.line_name) }]}>
             <ThemedText style={styles.circleLineText}>{getLineNumber(item.line_name)}</ThemedText>
@@ -243,7 +244,7 @@ export default function CommunityScreen() {
           />
         ) : null}
         <View style={styles.feedStats}>
-          <TouchableOpacity style={styles.statBtn} onPress={() => handleLike(item.id)}>
+          <TouchableOpacity style={styles.statBtn} onPress={(e) => { e.stopPropagation(); handleLike(item.id); }}>
             <Ionicons
               name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
               size={16}
@@ -253,12 +254,12 @@ export default function CommunityScreen() {
               {item.likes_count || 0}
             </ThemedText>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.statBtn} onPress={() => openComments(item.id)}>
+          <TouchableOpacity style={styles.statBtn} onPress={() => router.push(`/report/${item.id}`)}>
             <Ionicons name="chatbubble-outline" size={16} color={COLORS.textSub} />
             <ThemedText style={styles.statText}>{item.comments_count || 0}</ThemedText>
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -298,7 +299,7 @@ export default function CommunityScreen() {
           {reports.slice(0, 3).map((item: any) => {
             const isLiked = likedReports.has(item.id);
             return (
-              <View key={item.id} style={styles.popularCard}>
+              <TouchableOpacity key={item.id} activeOpacity={0.85} onPress={() => router.push(`/report/${item.id}`)} style={styles.popularCard}>
                 <View style={styles.cardHeaderRow}>
                   <View style={styles.hotBadge}><ThemedText style={styles.hotText}>HOT</ThemedText></View>
                   <View style={[styles.circleLineIconSmall, { backgroundColor: getLineColor(item.line_name) }]}>
@@ -309,7 +310,7 @@ export default function CommunityScreen() {
                 <ThemedText style={styles.popularCardTitle} numberOfLines={1}>{item.content.split('\n')[0]}</ThemedText>
                 <ThemedText style={styles.popularCardBody} numberOfLines={2}>{item.content}</ThemedText>
                 <View style={styles.cardStats}>
-                  <TouchableOpacity style={styles.statBtn} onPress={() => handleLike(item.id)}>
+                  <TouchableOpacity style={styles.statBtn} onPress={(e) => { e.stopPropagation(); handleLike(item.id); }}>
                     <Ionicons
                       name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
                       size={14}
@@ -319,12 +320,12 @@ export default function CommunityScreen() {
                       {item.likes_count || 0}
                     </ThemedText>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.statBtn} onPress={() => openComments(item.id)}>
+                  <TouchableOpacity style={styles.statBtn} onPress={() => router.push(`/report/${item.id}`)}>
                     <Ionicons name="chatbubble-outline" size={14} color={COLORS.textSub} />
                     <ThemedText style={styles.statText}>{item.comments_count || 0}</ThemedText>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </ScrollView>
