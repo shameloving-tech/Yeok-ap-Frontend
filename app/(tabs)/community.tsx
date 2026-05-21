@@ -61,6 +61,7 @@ export default function CommunityScreen() {
 
   // 제보 작성
   const [station, setStation] = useState('');
+  const [postLine, setPostLine] = useState('');
   const [direction, setDirection] = useState('');
   const [content, setContent] = useState('');
   const [image, setImage] = useState<string | null>(null);
@@ -183,15 +184,15 @@ export default function CommunityScreen() {
   };
 
   const submitReport = async () => {
-    if (!station || !content || !direction) {
-      Toast.show({ type: 'error', text1: '알림', text2: '모든 항목을 입력해주세요!' });
+    if (!station || !content || !direction || !postLine) {
+      Toast.show({ type: 'error', text1: '알림', text2: '호선을 포함해 모든 항목을 입력해주세요!' });
       return;
     }
     setSubmitting(true);
     try {
       const formattedStation = station.trim().endsWith('역') ? station.trim() : `${station.trim()}역`;
       const formData = new FormData();
-      formData.append('report[line_name]', selectedLine === '전체' ? '' : selectedLine);
+      formData.append('report[line_name]', postLine);
       formData.append('report[station_name]', formattedStation);
       formData.append('report[direction]', direction);
       formData.append('report[content]', content);
@@ -203,7 +204,7 @@ export default function CommunityScreen() {
       const response = await fetch(`${BASE_URL}/reports`, { method: 'POST', body: formData });
       if (response.ok) {
         setIsPostModalOpen(false);
-        setImage(null); setContent(''); setStation(''); setDirection('');
+        setImage(null); setContent(''); setStation(''); setDirection(''); setPostLine('');
         fetchReports();
         Toast.show({ type: 'success', text1: '제보 완료', text2: '제보가 등록되었습니다!' });
       } else {
@@ -387,6 +388,25 @@ export default function CommunityScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView style={{ padding: 20 }}>
+              <ThemedText style={styles.inputLabel}>호선 선택 *</ThemedText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
+                <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
+                  {SUBWAY_LINES.filter(l => l !== '전체').map(line => (
+                    <TouchableOpacity
+                      key={line}
+                      onPress={() => setPostLine(line)}
+                      style={[
+                        styles.lineChip,
+                        postLine === line && { backgroundColor: getLineColor(line), borderColor: getLineColor(line) },
+                      ]}
+                    >
+                      <ThemedText style={[styles.lineChipText, postLine === line && { color: 'white' }]}>
+                        {line}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
               <TextInput style={styles.input} placeholder="역 이름" value={station} onChangeText={setStation} />
               <TextInput style={styles.input} placeholder="방면" value={direction} onChangeText={setDirection} />
               <TextInput
@@ -560,6 +580,9 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   modalTitle: { fontSize: 18, fontWeight: '800' },
   submitText: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
+  inputLabel: { fontSize: 13, fontWeight: '700', color: COLORS.textSub, marginBottom: 8 },
+  lineChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: 'white' },
+  lineChipText: { fontSize: 12, fontWeight: '700', color: COLORS.textSub },
   input: { backgroundColor: COLORS.border, borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 15 },
   imagePicker: { height: 150, backgroundColor: COLORS.border, borderRadius: 12, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   previewImage: { width: '100%', height: '100%' },
