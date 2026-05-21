@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   hotBadge: { backgroundColor: '#FFF2F2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 8 },
   hotText: { color: '#FF5252', fontSize: 10, fontWeight: '800' },
   circleLineIconSmall: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginRight: 6 },
-  circleLineTextSmall: { color: 'white', fontSize: 10, fontWeight: '800' },
+  circleLineTextSmall: { color: 'white', fontSize: 10, fontWeight: '800', lineHeight: 12, includeFontPadding: false } as any,
   cardMeta: { fontSize: 12, color: COLORS.textSub, fontWeight: '500', flex: 1 },
   popularCardTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textMain, marginBottom: 6 },
   popularCardBody: { fontSize: 13, color: COLORS.textSub, lineHeight: 18, marginBottom: 15 },
