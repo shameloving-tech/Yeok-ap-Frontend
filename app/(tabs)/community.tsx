@@ -35,6 +35,7 @@ const SUBWAY_LINES = [
 ];
 
 const LIKED_REPORTS_KEY = 'liked_reports';
+const REPORTS_CACHE_KEY = (line: string) => `reports_cache_${line}`;
 
 const getTimeAgo = (createdAt: string): string => {
   const diffMs = Date.now() - new Date(createdAt).getTime();
@@ -80,7 +81,7 @@ export default function CommunityScreen() {
   const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchReports();
+    loadReports();
     loadLikedReports();
   }, [selectedLine]);
 
@@ -89,13 +90,26 @@ export default function CommunityScreen() {
     if (raw) setLikedReports(new Set(JSON.parse(raw)));
   };
 
+  const loadReports = async () => {
+    // 1) 캐시 즉시 표시
+    const cached = await AsyncStorage.getItem(REPORTS_CACHE_KEY(selectedLine));
+    if (cached) {
+      setReports(JSON.parse(cached));
+      setLoading(false);
+    }
+    // 2) 백그라운드에서 최신 데이터 fetch
+    await fetchReports();
+  };
+
   const fetchReports = async () => {
     try {
       const lineParam = selectedLine === '전체' ? '' : selectedLine;
       const url = `${BASE_URL}/reports?line_name=${encodeURIComponent(lineParam)}`;
       const response = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!response.ok) throw new Error('서버 응답 오류');
-      setReports(await response.json());
+      const data = await response.json();
+      setReports(data);
+      await AsyncStorage.setItem(REPORTS_CACHE_KEY(selectedLine), JSON.stringify(data));
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -209,6 +223,8 @@ export default function CommunityScreen() {
       if (response.ok) {
         setIsPostModalOpen(false);
         setImage(null); setTitle(''); setContent(''); setStation(''); setDirection(''); setPostLine('');
+        await AsyncStorage.removeItem(REPORTS_CACHE_KEY(selectedLine));
+        await AsyncStorage.removeItem(REPORTS_CACHE_KEY('전체'));
         fetchReports();
         Toast.show({ type: 'success', text1: '제보 완료', text2: '제보가 등록되었습니다!' });
       } else {
