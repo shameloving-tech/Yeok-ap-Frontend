@@ -337,9 +337,11 @@ export default function CommunityScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* 헤더 */}
       <View style={styles.header}>
-        <View style={styles.headerAvatar}>
-          <Ionicons name="happy" size={20} color="white" />
-        </View>
+        <Image
+          source={require('@/assets/images/character_design.svg')}
+          style={{ width: 36, height: 36 }}
+          contentFit="contain"
+        />
         <ThemedText style={styles.headerTitle}>커뮤니티</ThemedText>
         <TouchableOpacity style={styles.headerSearch}>
           <Ionicons name="search" size={24} color={COLORS.textMain} />
