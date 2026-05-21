@@ -5,6 +5,9 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -30,6 +33,8 @@ const SUBWAY_LINES = [
   '김포골드라인', '경강선', '서해선', '인천1호선', '인천2호선', 'GTX-A',
 ];
 
+const LIKED_REPORTS_KEY = 'liked_reports';
+
 const getTimeAgo = (createdAt: string): string => {
   const diffMs = Date.now() - new Date(createdAt).getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -49,22 +54,43 @@ const fixImageUrl = (url: string): string | null => {
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
   const [selectedLine, setSelectedLine] = useState('전체');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 제보 작성
   const [station, setStation] = useState('');
   const [direction, setDirection] = useState('');
   const [content, setContent] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // 좋아요
+  const [likedReports, setLikedReports] = useState<Set<number>>(new Set());
+
+  // 댓글
+  const [commentsReportId, setCommentsReportId] = useState<number | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchReports();
+    loadLikedReports();
+  }, [selectedLine]);
+
+  const loadLikedReports = async () => {
+    const raw = await AsyncStorage.getItem(LIKED_REPORTS_KEY);
+    if (raw) setLikedReports(new Set(JSON.parse(raw)));
+  };
+
   const fetchReports = async () => {
     try {
       const lineParam = selectedLine === '전체' ? '' : selectedLine;
       const url = `${BASE_URL}/reports?line_name=${encodeURIComponent(lineParam)}`;
-      const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const response = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!response.ok) throw new Error('서버 응답 오류');
       setReports(await response.json());
     } catch (e: any) {
@@ -75,10 +101,77 @@ export default function CommunityScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchReports();
-  }, [selectedLine]);
+  // ─── 좋아요 ──────────────────────────────────────────────
+  const handleLike = async (reportId: number) => {
+    if (likedReports.has(reportId)) return;
 
+    try {
+      const res = await fetch(`${BASE_URL}/reports/${reportId}/like`, { method: 'POST' });
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const updated = new Set(likedReports);
+      updated.add(reportId);
+      setLikedReports(updated);
+      await AsyncStorage.setItem(LIKED_REPORTS_KEY, JSON.stringify([...updated]));
+
+      setReports(prev =>
+        prev.map(r => r.id === reportId ? { ...r, likes_count: data.likes_count } : r)
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // ─── 댓글 ────────────────────────────────────────────────
+  const openComments = async (reportId: number) => {
+    setCommentsReportId(reportId);
+    setCommentsLoading(true);
+    setComments([]);
+    try {
+      const res = await fetch(`${BASE_URL}/reports/${reportId}/comments`);
+      setComments(await res.json());
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const closeComments = () => {
+    setCommentsReportId(null);
+    setComments([]);
+    setCommentText('');
+  };
+
+  const submitComment = async () => {
+    if (!commentText.trim() || commentsReportId === null) return;
+    setCommentSubmitting(true);
+    try {
+      const nickname = (await AsyncStorage.getItem('user_nickname')) || '익명';
+      const res = await fetch(`${BASE_URL}/reports/${commentsReportId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment: { content: commentText.trim(), nickname } }),
+      });
+      if (res.ok) {
+        const newComment = await res.json();
+        setComments(prev => [...prev, newComment]);
+        setCommentText('');
+        setReports(prev =>
+          prev.map(r =>
+            r.id === commentsReportId ? { ...r, comments_count: (r.comments_count || 0) + 1 } : r
+          )
+        );
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
+  // ─── 제보 작성 ───────────────────────────────────────────
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -98,7 +191,7 @@ export default function CommunityScreen() {
     try {
       const formattedStation = station.trim().endsWith('역') ? station.trim() : `${station.trim()}역`;
       const formData = new FormData();
-      formData.append('report[line_name]', selectedLine === '전체' ? '2호선' : selectedLine);
+      formData.append('report[line_name]', selectedLine === '전체' ? '' : selectedLine);
       formData.append('report[station_name]', formattedStation);
       formData.append('report[direction]', direction);
       formData.append('report[content]', content);
@@ -109,7 +202,7 @@ export default function CommunityScreen() {
       }
       const response = await fetch(`${BASE_URL}/reports`, { method: 'POST', body: formData });
       if (response.ok) {
-        setIsModalOpen(false);
+        setIsPostModalOpen(false);
         setImage(null); setContent(''); setStation(''); setDirection('');
         fetchReports();
         Toast.show({ type: 'success', text1: '제보 완료', text2: '제보가 등록되었습니다!' });
@@ -122,6 +215,47 @@ export default function CommunityScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // ─── 렌더 헬퍼 ───────────────────────────────────────────
+  const renderFeedCard = ({ item }: { item: any }) => {
+    const isLiked = likedReports.has(item.id);
+    return (
+      <View style={styles.feedCard}>
+        <View style={styles.feedTopRow}>
+          <View style={[styles.circleLineIcon, { backgroundColor: getLineColor(item.line_name) }]}>
+            <ThemedText style={styles.circleLineText}>{getLineNumber(item.line_name)}</ThemedText>
+          </View>
+          <ThemedText style={styles.feedMeta}>{item.station_name} · {getTimeAgo(item.created_at)}</ThemedText>
+          <View style={styles.tagBadge}><ThemedText style={styles.tagText}>블라블라</ThemedText></View>
+        </View>
+        <ThemedText style={styles.feedTitle}>{item.content.split('\n')[0]}</ThemedText>
+        <ThemedText style={styles.feedBody} numberOfLines={2}>{item.content}</ThemedText>
+        {item.image_url ? (
+          <Image
+            source={{ uri: fixImageUrl(item.image_url) ?? undefined }}
+            style={styles.feedImage}
+            contentFit="cover"
+          />
+        ) : null}
+        <View style={styles.feedStats}>
+          <TouchableOpacity style={styles.statBtn} onPress={() => handleLike(item.id)}>
+            <Ionicons
+              name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
+              size={16}
+              color={isLiked ? COLORS.primary : COLORS.textSub}
+            />
+            <ThemedText style={[styles.statText, isLiked && styles.statTextActive]}>
+              {item.likes_count || 0}
+            </ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.statBtn} onPress={() => openComments(item.id)}>
+            <Ionicons name="chatbubble-outline" size={16} color={COLORS.textSub} />
+            <ThemedText style={styles.statText}>{item.comments_count || 0}</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   const renderPopularPosts = () => (
@@ -154,62 +288,49 @@ export default function CommunityScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator color={COLORS.primary} />
-        </View>
+        <View style={styles.loadingContainer}><ActivityIndicator color={COLORS.primary} /></View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.popularScroll}>
-          {reports.slice(0, 3).map((item: any) => (
-            <View key={item.id} style={styles.popularCard}>
-              <View style={styles.cardHeaderRow}>
-                <View style={styles.hotBadge}><ThemedText style={styles.hotText}>HOT</ThemedText></View>
-                <View style={[styles.circleLineIconSmall, { backgroundColor: getLineColor(item.line_name) }]}>
-                  <ThemedText style={styles.circleLineTextSmall}>{getLineNumber(item.line_name)}</ThemedText>
+          {reports.slice(0, 3).map((item: any) => {
+            const isLiked = likedReports.has(item.id);
+            return (
+              <View key={item.id} style={styles.popularCard}>
+                <View style={styles.cardHeaderRow}>
+                  <View style={styles.hotBadge}><ThemedText style={styles.hotText}>HOT</ThemedText></View>
+                  <View style={[styles.circleLineIconSmall, { backgroundColor: getLineColor(item.line_name) }]}>
+                    <ThemedText style={styles.circleLineTextSmall}>{getLineNumber(item.line_name)}</ThemedText>
+                  </View>
+                  <ThemedText style={styles.cardMeta}>{item.station_name} · {getTimeAgo(item.created_at)}</ThemedText>
                 </View>
-                <ThemedText style={styles.cardMeta}>{item.station_name} · {getTimeAgo(item.created_at)}</ThemedText>
+                <ThemedText style={styles.popularCardTitle} numberOfLines={1}>{item.content.split('\n')[0]}</ThemedText>
+                <ThemedText style={styles.popularCardBody} numberOfLines={2}>{item.content}</ThemedText>
+                <View style={styles.cardStats}>
+                  <TouchableOpacity style={styles.statBtn} onPress={() => handleLike(item.id)}>
+                    <Ionicons
+                      name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
+                      size={14}
+                      color={isLiked ? COLORS.primary : COLORS.textSub}
+                    />
+                    <ThemedText style={[styles.statText, isLiked && styles.statTextActive]}>
+                      {item.likes_count || 0}
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.statBtn} onPress={() => openComments(item.id)}>
+                    <Ionicons name="chatbubble-outline" size={14} color={COLORS.textSub} />
+                    <ThemedText style={styles.statText}>{item.comments_count || 0}</ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <ThemedText style={styles.popularCardTitle} numberOfLines={1}>{item.content.split('\n')[0]}</ThemedText>
-              <ThemedText style={styles.popularCardBody} numberOfLines={2}>{item.content}</ThemedText>
-              <View style={styles.cardStats}>
-                <View style={styles.statItem}>
-                  <Ionicons name="thumbs-up-outline" size={14} color={COLORS.textSub} />
-                  <ThemedText style={styles.statText}>0</ThemedText>
-                </View>
-                <View style={styles.statItem}>
-                  <Ionicons name="chatbubble-outline" size={14} color={COLORS.textSub} />
-                  <ThemedText style={styles.statText}>0</ThemedText>
-                </View>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
     </View>
   );
 
-  const renderCategories = () => (
-    <View style={styles.categoryRow}>
-      <TouchableOpacity style={styles.categoryBox}>
-        <View>
-          <ThemedText style={styles.categoryLabel}>역 제보</ThemedText>
-          <ThemedText style={styles.categoryMain}>전체보기</ThemedText>
-        </View>
-        <View style={styles.categoryIconCircle}>
-          <Ionicons name="subway-outline" size={24} color={COLORS.textSub} />
-        </View>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.categoryBox}>
-        <View>
-          <ThemedText style={styles.categoryLabel}>블라블라</ThemedText>
-          <ThemedText style={styles.categoryMain}>전체보기</ThemedText>
-        </View>
-        <View style={styles.categoryImagePlaceholder} />
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* 헤더 */}
       <View style={styles.header}>
         <View style={styles.headerAvatar}>
           <Ionicons name="happy" size={20} color="white" />
@@ -220,6 +341,7 @@ export default function CommunityScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* 피드 */}
       <FlatList
         data={reports}
         keyExtractor={(item) => item.id.toString()}
@@ -235,62 +357,33 @@ export default function CommunityScreen() {
                 <ThemedText style={styles.sortInactive}>거리순</ThemedText>
               </View>
             </View>
-            {renderCategories()}
           </>
         }
-        renderItem={({ item }) => (
-          <View style={styles.feedCard}>
-            <View style={styles.feedTopRow}>
-              <View style={[styles.circleLineIcon, { backgroundColor: getLineColor(item.line_name) }]}>
-                <ThemedText style={styles.circleLineText}>{getLineNumber(item.line_name)}</ThemedText>
-              </View>
-              <ThemedText style={styles.feedMeta}>{item.station_name} · {getTimeAgo(item.created_at)}</ThemedText>
-              <View style={styles.tagBadge}><ThemedText style={styles.tagText}>블라블라</ThemedText></View>
-            </View>
-            <ThemedText style={styles.feedTitle}>{item.content.split('\n')[0]}</ThemedText>
-            <ThemedText style={styles.feedBody} numberOfLines={2}>{item.content}</ThemedText>
-            {item.image_url ? (
-              <Image
-                source={{ uri: fixImageUrl(item.image_url) ?? undefined }}
-                style={styles.feedImage}
-                contentFit="cover"
-              />
-            ) : (
-              <View style={styles.noImagePlaceholder} />
-            )}
-            <View style={styles.feedStats}>
-              <View style={styles.statItem}>
-                <Ionicons name="thumbs-up-outline" size={14} color="#FFD15B" />
-                <ThemedText style={styles.statText}>0</ThemedText>
-                <Ionicons name="chatbubble-outline" size={14} color={COLORS.textSub} style={{ marginLeft: 10 }} />
-                <ThemedText style={styles.statText}>0</ThemedText>
-              </View>
-            </View>
-          </View>
-        )}
+        renderItem={renderFeedCard}
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
       />
 
+      {/* 제보 FAB */}
       <TouchableOpacity
         style={[styles.fab, { bottom: 30 + insets.bottom }]}
-        onPress={() => setIsModalOpen(true)}
+        onPress={() => setIsPostModalOpen(true)}
       >
         <Ionicons name="pencil" size={24} color="white" />
       </TouchableOpacity>
 
-      {isModalOpen && (
+      {/* ── 제보 작성 모달 ── */}
+      {isPostModalOpen && (
         <View style={styles.modalOverlay}>
           <SafeAreaView style={{ flex: 1 }}>
             <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setIsModalOpen(false)}>
+              <TouchableOpacity onPress={() => setIsPostModalOpen(false)}>
                 <Ionicons name="close" size={28} color={COLORS.textMain} />
               </TouchableOpacity>
               <ThemedText style={styles.modalTitle}>제보하기</ThemedText>
               <TouchableOpacity onPress={submitReport} disabled={submitting}>
                 {submitting
                   ? <ActivityIndicator size="small" color={COLORS.primary} />
-                  : <ThemedText style={styles.submitText}>등록</ThemedText>
-                }
+                  : <ThemedText style={styles.submitText}>등록</ThemedText>}
               </TouchableOpacity>
             </View>
             <ScrollView style={{ padding: 20 }}>
@@ -317,6 +410,84 @@ export default function CommunityScreen() {
           </SafeAreaView>
         </View>
       )}
+
+      {/* ── 댓글 바텀시트 ── */}
+      <Modal
+        visible={commentsReportId !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={closeComments}
+      >
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeComments} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.commentsSheet}
+        >
+          <View style={styles.commentsHandle} />
+          <View style={styles.commentsSheetHeader}>
+            <ThemedText style={styles.commentsSheetTitle}>댓글</ThemedText>
+            <TouchableOpacity onPress={closeComments}>
+              <Ionicons name="close" size={24} color={COLORS.textMain} />
+            </TouchableOpacity>
+          </View>
+
+          {commentsLoading ? (
+            <View style={styles.commentsLoadingContainer}>
+              <ActivityIndicator color={COLORS.primary} />
+            </View>
+          ) : (
+            <FlatList
+              data={comments}
+              keyExtractor={(item) => item.id.toString()}
+              style={styles.commentsList}
+              ListEmptyComponent={
+                <View style={styles.noComments}>
+                  <Ionicons name="chatbubble-outline" size={36} color={COLORS.textSub} />
+                  <ThemedText style={styles.noCommentsText}>첫 댓글을 남겨보세요!</ThemedText>
+                </View>
+              }
+              renderItem={({ item }) => (
+                <View style={styles.commentItem}>
+                  <View style={styles.commentAvatar}>
+                    <ThemedText style={styles.commentAvatarText}>
+                      {item.nickname?.[0] || '익'}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.commentContent}>
+                    <View style={styles.commentMeta}>
+                      <ThemedText style={styles.commentNickname}>{item.nickname || '익명'}</ThemedText>
+                      <ThemedText style={styles.commentTime}>{getTimeAgo(item.created_at)}</ThemedText>
+                    </View>
+                    <ThemedText style={styles.commentText}>{item.content}</ThemedText>
+                  </View>
+                </View>
+              )}
+            />
+          )}
+
+          <View style={styles.commentInputRow}>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="댓글을 입력하세요..."
+              placeholderTextColor={COLORS.textSub}
+              value={commentText}
+              onChangeText={setCommentText}
+              returnKeyType="send"
+              onSubmitEditing={submitComment}
+            />
+            <TouchableOpacity
+              onPress={submitComment}
+              style={styles.commentSendBtn}
+              disabled={!commentText.trim() || commentSubmitting}
+            >
+              {commentSubmitting
+                ? <ActivityIndicator size="small" color={COLORS.primary} />
+                : <Ionicons name="send" size={20} color={commentText.trim() ? COLORS.primary : COLORS.textSub} />
+              }
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -324,10 +495,20 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
   loadingContainer: { padding: 20, alignItems: 'center' },
+
+  // 헤더
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'white' },
+  headerAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: COLORS.primary },
+  headerSearch: { padding: 4 },
+
+  // 섹션
   sectionContainer: { marginTop: 10 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 15 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textMain },
   viewAll: { fontSize: 14, color: COLORS.textSub, fontWeight: '600' },
+
+  // 필터
   filterWrapper: { marginBottom: 15 },
   filterScroll: { paddingHorizontal: 20, alignItems: 'center', gap: 10 },
   filterChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: COLORS.border },
@@ -336,6 +517,8 @@ const styles = StyleSheet.create({
   activeFilterText: { color: 'white' },
   filterSeparator: { width: 1, height: 16, backgroundColor: '#E5E5EA', marginHorizontal: 5 },
   chipDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
+
+  // 인기글 카드
   popularScroll: { paddingHorizontal: 20, gap: 12, paddingBottom: 10 },
   popularCard: { width: width * 0.72, backgroundColor: 'white', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
@@ -343,23 +526,17 @@ const styles = StyleSheet.create({
   hotText: { color: '#FF5252', fontSize: 10, fontWeight: '800' },
   circleLineIconSmall: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginRight: 6 },
   circleLineTextSmall: { color: 'white', fontSize: 10, fontWeight: '800' },
-  cardMeta: { fontSize: 12, color: COLORS.textSub, fontWeight: '500' },
+  cardMeta: { fontSize: 12, color: COLORS.textSub, fontWeight: '500', flex: 1 },
   popularCardTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textMain, marginBottom: 6 },
   popularCardBody: { fontSize: 13, color: COLORS.textSub, lineHeight: 18, marginBottom: 15 },
   cardStats: { flexDirection: 'row', gap: 12, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 12 },
-  statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statText: { fontSize: 12, color: COLORS.textSub, fontWeight: '500' },
+
+  // 피드
   newPostsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 20, marginBottom: 15 },
   sortOptions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sortActive: { fontSize: 13, color: COLORS.textMain, fontWeight: '800' },
   sortInactive: { fontSize: 13, color: COLORS.textSub, fontWeight: '500' },
   sortDivider: { fontSize: 12, color: '#E5E5EA' },
-  categoryRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 12, marginBottom: 20 },
-  categoryBox: { flex: 1, height: 100, backgroundColor: 'white', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', justifyContent: 'space-between' },
-  categoryLabel: { fontSize: 14, fontWeight: '700', color: COLORS.primary, marginBottom: 4 },
-  categoryMain: { fontSize: 17, fontWeight: '800', color: COLORS.textMain },
-  categoryIconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.border, justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-end' },
-  categoryImagePlaceholder: { width: 44, height: 44, borderRadius: 12, backgroundColor: COLORS.border, alignSelf: 'flex-end' },
   feedCard: { paddingHorizontal: 20, paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   feedTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   circleLineIcon: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
@@ -368,22 +545,52 @@ const styles = StyleSheet.create({
   tagBadge: { backgroundColor: COLORS.border, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   tagText: { fontSize: 11, color: COLORS.textSub, fontWeight: '700' },
   feedTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textMain, marginBottom: 8 },
-  feedBody: { fontSize: 14, color: COLORS.textSub, lineHeight: 20, marginBottom: 15 },
-  feedImage: { width: '100%', height: 200, borderRadius: 16, marginBottom: 15 },
-  feedStats: { flexDirection: 'row', justifyContent: 'space-between' },
-  noImagePlaceholder: { height: 0 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'white' },
-  headerAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: COLORS.primary },
-  headerSearch: { padding: 4 },
+  feedBody: { fontSize: 14, color: COLORS.textSub, lineHeight: 20, marginBottom: 12 },
+  feedImage: { width: '100%', height: 200, borderRadius: 16, marginBottom: 12 },
+  feedStats: { flexDirection: 'row', gap: 16 },
+  statBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statText: { fontSize: 13, color: COLORS.textSub, fontWeight: '600' },
+  statTextActive: { color: COLORS.primary },
+
+  // FAB
   fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 20, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', elevation: 8 },
+
+  // 제보 작성 모달
   modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'white', zIndex: 1000 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   modalTitle: { fontSize: 18, fontWeight: '800' },
   submitText: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
-  input: { backgroundColor: COLORS.border, borderRadius: 12, padding: 15, marginBottom: 15 },
+  input: { backgroundColor: COLORS.border, borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 15 },
   imagePicker: { height: 150, backgroundColor: COLORS.border, borderRadius: 12, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   previewImage: { width: '100%', height: '100%' },
   imagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
   imagePlaceholderText: { marginTop: 8, color: COLORS.textSub, fontSize: 13, fontWeight: '500' },
+
+  // 댓글 바텀시트
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  commentsSheet: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '70%',
+    paddingBottom: 20,
+  },
+  commentsHandle: { width: 36, height: 4, backgroundColor: '#E5E5EA', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
+  commentsSheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  commentsSheetTitle: { fontSize: 17, fontWeight: '800', color: COLORS.textMain },
+  commentsLoadingContainer: { padding: 40, alignItems: 'center' },
+  commentsList: { flexGrow: 0, maxHeight: 340 },
+  noComments: { alignItems: 'center', paddingVertical: 40, gap: 10 },
+  noCommentsText: { fontSize: 14, color: COLORS.textSub },
+  commentItem: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  commentAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primary + '20', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  commentAvatarText: { fontSize: 15, fontWeight: '800', color: COLORS.primary },
+  commentContent: { flex: 1 },
+  commentMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  commentNickname: { fontSize: 13, fontWeight: '700', color: COLORS.textMain },
+  commentTime: { fontSize: 11, color: COLORS.textSub },
+  commentText: { fontSize: 14, color: COLORS.textMain, lineHeight: 20 },
+  commentInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: 1, borderTopColor: COLORS.border },
+  commentInput: { flex: 1, backgroundColor: COLORS.border, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, color: COLORS.textMain, marginRight: 10 },
+  commentSendBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
 });
