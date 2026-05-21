@@ -278,7 +278,7 @@ export default function CommunityScreen() {
             <ThemedText style={[styles.filterText, selectedLine === '전체' && styles.activeFilterText]}>전체</ThemedText>
           </TouchableOpacity>
           <View style={styles.filterSeparator} />
-          {SUBWAY_LINES.filter(l => l !== '전체').slice(0, 5).map(line => (
+          {SUBWAY_LINES.filter(l => l !== '전체').map(line => (
             <TouchableOpacity
               key={line}
               style={[styles.filterChip, selectedLine === line && styles.activeFilterChip]}
