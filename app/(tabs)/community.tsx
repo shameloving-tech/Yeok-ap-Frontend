@@ -63,6 +63,7 @@ export default function CommunityScreen() {
   const [station, setStation] = useState('');
   const [postLine, setPostLine] = useState('');
   const [direction, setDirection] = useState('');
+  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -192,11 +193,12 @@ export default function CommunityScreen() {
     setSubmitting(true);
     try {
       const formattedStation = station.trim().endsWith('역') ? station.trim() : `${station.trim()}역`;
+      const fullContent = title.trim() ? `${title.trim()}\n${content}` : content;
       const formData = new FormData();
       formData.append('report[line_name]', postLine);
       formData.append('report[station_name]', formattedStation);
       formData.append('report[direction]', direction);
-      formData.append('report[content]', content);
+      formData.append('report[content]', fullContent);
       formData.append('report[status]', '혼잡');
       if (image) {
         const filename = image.split('/').pop() || 'image.jpg';
@@ -205,7 +207,7 @@ export default function CommunityScreen() {
       const response = await fetch(`${BASE_URL}/reports`, { method: 'POST', body: formData });
       if (response.ok) {
         setIsPostModalOpen(false);
-        setImage(null); setContent(''); setStation(''); setDirection(''); setPostLine('');
+        setImage(null); setTitle(''); setContent(''); setStation(''); setDirection(''); setPostLine('');
         fetchReports();
         Toast.show({ type: 'success', text1: '제보 완료', text2: '제보가 등록되었습니다!' });
       } else {
@@ -377,56 +379,120 @@ export default function CommunityScreen() {
       {isPostModalOpen && (
         <View style={styles.modalOverlay}>
           <SafeAreaView style={{ flex: 1 }}>
+            {/* 헤더 */}
             <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setIsPostModalOpen(false)}>
-                <Ionicons name="close" size={28} color={COLORS.textMain} />
+              <TouchableOpacity onPress={() => setIsPostModalOpen(false)} style={styles.modalHeaderBtn}>
+                <Ionicons name="close" size={24} color={COLORS.textMain} />
               </TouchableOpacity>
               <ThemedText style={styles.modalTitle}>제보하기</ThemedText>
-              <TouchableOpacity onPress={submitReport} disabled={submitting}>
-                {submitting
-                  ? <ActivityIndicator size="small" color={COLORS.primary} />
-                  : <ThemedText style={styles.submitText}>등록</ThemedText>}
-              </TouchableOpacity>
+              <View style={styles.modalHeaderBtn} />
             </View>
-            <ScrollView style={{ padding: 20 }}>
-              <ThemedText style={styles.inputLabel}>호선 선택 *</ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
-                <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
-                  {SUBWAY_LINES.filter(l => l !== '전체').map(line => (
-                    <TouchableOpacity
-                      key={line}
-                      onPress={() => setPostLine(line)}
-                      style={[
-                        styles.lineChip,
-                        postLine === line && { backgroundColor: getLineColor(line), borderColor: getLineColor(line) },
-                      ]}
-                    >
-                      <ThemedText style={[styles.lineChipText, postLine === line && { color: 'white' }]}>
-                        {line}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+              {/* 현재 역 */}
+              <ThemedText style={styles.formSectionLabel}>현재 역</ThemedText>
+              <View style={styles.stationCard}>
+                {/* 호선 선택 */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.lineScrollRow}>
+                  <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 2 }}>
+                    {SUBWAY_LINES.filter(l => l !== '전체').map(line => (
+                      <TouchableOpacity
+                        key={line}
+                        onPress={() => setPostLine(line)}
+                        style={[styles.lineChip, postLine === line && { backgroundColor: getLineColor(line), borderColor: getLineColor(line) }]}
+                      >
+                        <ThemedText style={[styles.lineChipText, postLine === line && { color: 'white' }]}>{line}</ThemedText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+
+                <View style={styles.stationInputRow}>
+                  <View style={[styles.lineCircleMd, { backgroundColor: postLine ? getLineColor(postLine) : '#C7C7CC' }]}>
+                    <ThemedText style={styles.lineCircleMdText}>
+                      {postLine ? (postLine.match(/(\d+)/)?.[1] || postLine.slice(0, 2)) : '?'}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.stationTextInputs}>
+                    <TextInput
+                      style={styles.stationNameInput}
+                      placeholder="역 이름"
+                      placeholderTextColor={COLORS.textSub}
+                      value={station}
+                      onChangeText={setStation}
+                    />
+                    <View style={styles.inputDivider} />
+                    <TextInput
+                      style={styles.directionInput}
+                      placeholder="방면 (예: 교대)"
+                      placeholderTextColor={COLORS.textSub}
+                      value={direction}
+                      onChangeText={setDirection}
+                    />
+                  </View>
                 </View>
-              </ScrollView>
-              <TextInput style={styles.input} placeholder="역 이름" value={station} onChangeText={setStation} />
-              <TextInput style={styles.input} placeholder="방면" value={direction} onChangeText={setDirection} />
+              </View>
+
+              {/* 경고 */}
+              <View style={styles.noticeBanner}>
+                <Ionicons name="information-circle-outline" size={18} color={COLORS.textSub} style={{ marginRight: 8, flexShrink: 0 }} />
+                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쾌감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
+              </View>
+
+              {/* 제보 내용 */}
+              <ThemedText style={styles.formSectionLabel}>제보 내용</ThemedText>
+              <ThemedText style={styles.formSectionSub}>현재 역 주변의 불편사항이나 실시간 정보를 공유해 주세요.</ThemedText>
+
               <TextInput
-                style={[styles.input, { height: 100 }]}
-                placeholder="내용"
+                style={styles.titleInput}
+                placeholder="제목을 입력해 주세요."
+                placeholderTextColor={COLORS.textSub}
+                value={title}
+                onChangeText={setTitle}
+              />
+              <TextInput
+                style={styles.contentInput}
+                placeholder={"제보 내용을 입력해 주세요.\n(예: 3번 출구 에스컬레이터 고장, 열차 지연 등)"}
+                placeholderTextColor={COLORS.textSub}
                 multiline
+                textAlignVertical="top"
                 value={content}
                 onChangeText={setContent}
               />
-              <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                {image ? (
-                  <Image source={{ uri: image }} style={styles.previewImage} contentFit="cover" />
-                ) : (
-                  <View style={styles.imagePlaceholder}>
-                    <Ionicons name="camera" size={40} color="#ccc" />
-                    <ThemedText style={styles.imagePlaceholderText}>사진 첨부하기</ThemedText>
+
+              {/* 사진 1장 */}
+              <View style={styles.photoRow}>
+                <TouchableOpacity style={styles.photoAddBtn} onPress={pickImage}>
+                  <Ionicons name="image-outline" size={26} color={COLORS.textSub} />
+                  <ThemedText style={styles.photoAddText}>1/1</ThemedText>
+                </TouchableOpacity>
+                {image && (
+                  <View style={styles.photoPreviewWrap}>
+                    <Image source={{ uri: image }} style={styles.photoPreview} contentFit="cover" />
+                    <TouchableOpacity style={styles.photoRemoveBtn} onPress={() => setImage(null)}>
+                      <Ionicons name="close" size={12} color="white" />
+                    </TouchableOpacity>
                   </View>
                 )}
+              </View>
+
+              {/* 제보하기 버튼 */}
+              <TouchableOpacity
+                style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
+                onPress={submitReport}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="send" size={18} color="white" style={{ marginRight: 8 }} />
+                    <ThemedText style={styles.submitBtnText}>제보하기</ThemedText>
+                  </>
+                )}
               </TouchableOpacity>
+              <View style={{ height: 40 }} />
             </ScrollView>
           </SafeAreaView>
         </View>
@@ -577,18 +643,72 @@ const styles = StyleSheet.create({
   fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 20, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', elevation: 8 },
 
   // 제보 작성 모달
-  modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'white', zIndex: 1000 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  modalTitle: { fontSize: 18, fontWeight: '800' },
-  submitText: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
-  inputLabel: { fontSize: 13, fontWeight: '700', color: COLORS.textSub, marginBottom: 8 },
-  lineChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: 'white' },
+  modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#F8F9FB', zIndex: 1000 },
+  modalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 14,
+    backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  modalHeaderBtn: { width: 40, alignItems: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textMain },
+  modalBody: { flex: 1, padding: 20 },
+
+  formSectionLabel: { fontSize: 16, fontWeight: '800', color: COLORS.textMain, marginBottom: 6, marginTop: 4 },
+  formSectionSub: { fontSize: 13, color: COLORS.textSub, marginBottom: 12 },
+
+  stationCard: {
+    backgroundColor: 'white', borderRadius: 20, padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2,
+  },
+  lineScrollRow: { marginBottom: 14 },
+  lineChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: 'white' },
   lineChipText: { fontSize: 12, fontWeight: '700', color: COLORS.textSub },
-  input: { backgroundColor: COLORS.border, borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 15 },
-  imagePicker: { height: 150, backgroundColor: COLORS.border, borderRadius: 12, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  previewImage: { width: '100%', height: '100%' },
-  imagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  imagePlaceholderText: { marginTop: 8, color: COLORS.textSub, fontSize: 13, fontWeight: '500' },
+
+  stationInputRow: { flexDirection: 'row', alignItems: 'center' },
+  lineCircleMd: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  lineCircleMdText: { color: 'white', fontSize: 16, fontWeight: '800' },
+  stationTextInputs: { flex: 1, borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 14, overflow: 'hidden' },
+  stationNameInput: { fontSize: 16, fontWeight: '700', color: COLORS.textMain, paddingHorizontal: 14, paddingVertical: 10 },
+  inputDivider: { height: 1, backgroundColor: COLORS.border },
+  directionInput: { fontSize: 14, color: COLORS.textSub, paddingHorizontal: 14, paddingVertical: 10 },
+
+  noticeBanner: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: '#F2F2F7', borderRadius: 14, padding: 14, marginBottom: 20,
+  },
+  noticeText: { flex: 1, fontSize: 13, color: COLORS.textSub, lineHeight: 18 },
+
+  titleInput: {
+    backgroundColor: 'white', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 15, color: COLORS.textMain, marginBottom: 10,
+    borderWidth: 1.5, borderColor: COLORS.border,
+  },
+  contentInput: {
+    backgroundColor: 'white', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 14, color: COLORS.textMain, height: 160, marginBottom: 16,
+    borderWidth: 1.5, borderColor: COLORS.border, lineHeight: 22,
+  },
+
+  photoRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  photoAddBtn: {
+    width: 72, height: 72, borderRadius: 14, borderWidth: 1.5, borderColor: COLORS.border,
+    borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: 'white',
+  },
+  photoAddText: { fontSize: 11, color: COLORS.textSub, marginTop: 2, fontWeight: '600' },
+  photoPreviewWrap: { width: 72, height: 72, borderRadius: 14, overflow: 'visible' },
+  photoPreview: { width: 72, height: 72, borderRadius: 14 },
+  photoRemoveBtn: {
+    position: 'absolute', top: -6, right: -6,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#333', justifyContent: 'center', alignItems: 'center',
+  },
+
+  submitBtn: {
+    backgroundColor: COLORS.primary, borderRadius: 18, paddingVertical: 18,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+  },
+  submitBtnText: { fontSize: 17, fontWeight: '800', color: 'white' },
 
   // 댓글 바텀시트
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
