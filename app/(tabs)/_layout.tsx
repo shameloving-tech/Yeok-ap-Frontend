@@ -3,13 +3,9 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { APP_COLORS } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
@@ -38,15 +34,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="route"
+        options={{
+          title: '길찾기',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="navigate" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="search"
         options={{
           title: '검색',
           tabBarIcon: ({ color }) => <Ionicons size={24} name="search" color={color} />,
-        }}
-        listeners={{
-          tabPress: (e) => {
-            // Prevent default action and maybe show a coming soon or just navigate
-          },
         }}
       />
       <Tabs.Screen
@@ -66,4 +64,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-

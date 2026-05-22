@@ -11,8 +11,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { StationDetailModal } from '@/components/StationDetailModal';
 import { APP_COLORS as COLORS } from '@/constants/theme';
-import { getLineColor } from '@/constants/lines';
+import { getLineColor, getLineNumber } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
 import { saveRecentStation } from './index';
 
@@ -21,6 +22,7 @@ export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [detailStation, setDetailStation] = useState<any>(null);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -41,6 +43,12 @@ export default function SearchScreen() {
     }, 300);
     return () => clearTimeout(timer);
   }, [query]);
+
+  const handleSelect = async (item: any) => {
+    const payload = { station_name: item.station_name, line_name: item.line };
+    await saveRecentStation(payload);
+    setDetailStation(payload);
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -90,14 +98,9 @@ export default function SearchScreen() {
         data={results}
         keyExtractor={(item) => `${item.id}`}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.resultItem}
-            onPress={() => saveRecentStation({ station_name: item.station_name, line_name: item.line })}
-          >
+          <TouchableOpacity style={styles.resultItem} onPress={() => handleSelect(item)}>
             <View style={[styles.lineBadge, { backgroundColor: getLineColor(item.line) }]}>
-              <ThemedText style={styles.lineBadgeText}>
-                {item.line?.match(/(\d+)/)?.[1] || 'M'}
-              </ThemedText>
+              <ThemedText style={styles.lineBadgeText}>{getLineNumber(item.line)}</ThemedText>
             </View>
             <View style={styles.resultInfo}>
               <ThemedText style={styles.stationName}>{item.station_name}</ThemedText>
@@ -107,6 +110,12 @@ export default function SearchScreen() {
           </TouchableOpacity>
         )}
         contentContainerStyle={{ paddingBottom: 100 }}
+      />
+
+      <StationDetailModal
+        visible={!!detailStation}
+        station={detailStation}
+        onClose={() => setDetailStation(null)}
       />
     </View>
   );
