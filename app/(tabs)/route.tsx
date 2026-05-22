@@ -156,6 +156,13 @@ export default function RouteScreen() {
   const segments = result ? groupBySegments(result.steps) : [];
   const shows9LineExpress = result && hasLine(segments, '9호선');
 
+  const expressBannerText = () => {
+    if (!result) return '';
+    if (result.express_active && result.express_used) return '현재 급행 운행 중 · 급행 이용 경로';
+    if (result.express_active && !result.express_used) return '현재 급행 운행 중 (이 경로는 미이용)';
+    return '현재 급행 미운행 시간대';
+  };
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { paddingTop: insets.top }]}
@@ -259,6 +266,7 @@ export default function RouteScreen() {
 
         {result && (
           <View>
+            {/* 요약 커드: 시간 / 환승 / 정거장 3등분 */}
             <View style={styles.summaryCard}>
               <View style={styles.summaryItem}>
                 <Ionicons name="time-outline" size={18} color={COLORS.primary} />
@@ -274,16 +282,6 @@ export default function RouteScreen() {
                 <Ionicons name="train-outline" size={18} color={COLORS.primary} />
                 <ThemedText style={styles.summaryText}>{result.stops}정거장</ThemedText>
               </View>
-              {result.express_used && (
-                <>
-                  <View style={styles.summaryDivider} />
-                  <View style={styles.summaryItem}>
-                    <View style={styles.expressChip}>
-                      <ThemedText style={styles.expressChipText}>급행</ThemedText>
-                    </View>
-                  </View>
-                </>
-              )}
             </View>
 
             {/* 9호선 급행 운행 상태 배너 */}
@@ -300,9 +298,7 @@ export default function RouteScreen() {
                   styles.expressBannerText,
                   { color: result.express_active ? '#1C6E33' : '#636366' },
                 ]}>
-                  {result.express_active
-                    ? '현재 9호선 급행 운행 중'
-                    : '현재 9호선 급행 미운행 시간대'}
+                  9호선 {expressBannerText()}
                 </ThemedText>
               </View>
             )}
@@ -418,16 +414,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', backgroundColor: 'white', borderRadius: 14,
     padding: 14, marginBottom: 10,
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
-    flexWrap: 'wrap',
   },
-  summaryItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 2 },
-  summaryDivider: { width: 1, backgroundColor: COLORS.border, marginVertical: 4, marginHorizontal: 4 },
+  summaryItem: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  summaryDivider: { width: 1, backgroundColor: COLORS.border, marginVertical: 4 },
   summaryText: { fontSize: 13, fontWeight: '700', color: COLORS.textMain },
-  expressChip: {
-    backgroundColor: '#FF9500',
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
-  },
-  expressChipText: { color: 'white', fontSize: 11, fontWeight: '800' },
   expressBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
