@@ -27,7 +27,9 @@ jobs:
 
       - name: Get app version
         id: version
-        run: echo "v=$(node -p \"require('./app.json').expo.version\")" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=$(node -e "console.log(require('./app.json').expo.version)")
+          echo "v=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build Android APK via EAS Cloud
         run: |
@@ -44,11 +46,11 @@ jobs:
         id: build_url
         run: |
           URL=$(node -e "
-            const raw = require('fs').readFileSync('/tmp/eas_output.json','utf8');
+            const raw = require('fs').readFileSync('/tmp/eas_output.json', 'utf8');
             const start = raw.indexOf('[') !== -1 ? raw.indexOf('[') : raw.indexOf('{');
             const builds = JSON.parse(raw.substring(start));
             const b = Array.isArray(builds) ? builds[0] : builds;
-            console.log(b?.artifacts?.buildUrl || b?.artifacts?.applicationArchiveUrl || '');
+            console.log(b && b.artifacts && (b.artifacts.buildUrl || b.artifacts.applicationArchiveUrl) || '');
           ")
           echo "url=$URL" >> $GITHUB_OUTPUT
 
