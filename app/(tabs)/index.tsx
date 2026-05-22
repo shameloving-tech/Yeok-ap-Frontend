@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { StationDetailModal } from '@/components/StationDetailModal';
+import { TrainLocationSheet } from '@/components/TrainLocationSheet';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { LINE_CONFIG, getLineColor, getLineNumber } from '@/constants/lines';
 import { useSubwayData } from '@/hooks/useSubwayData';
@@ -52,6 +53,7 @@ export default function HomeScreen() {
   const [recentStations, setRecentStations] = useState<any[]>([]);
   const [favoriteStations, setFavoriteStations] = useState<FavoriteStation[]>([]);
   const [detailStation, setDetailStation] = useState<any>(null);
+  const [trainSheetOpen, setTrainSheetOpen] = useState(false);
 
   useEffect(() => {
     loadPreferences();
@@ -124,7 +126,6 @@ export default function HomeScreen() {
     return nearest;
   }, [userLocation, stationList]);
 
-  // 즐겨찾기 역을 stationList와 머지해서 실시간 혼잡도 부여
   const favoriteStationsWithStatus = useMemo(() => {
     return favoriteStations.map(fav => {
       const live = stationList.find(s => s.station_name === fav.station_name && s.line_name === fav.line_name);
@@ -274,7 +275,6 @@ export default function HomeScreen() {
           </LinearGradient>
         </View>
 
-        {/* 즐겨찾기 역 */}
         {favoriteStationsWithStatus.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -398,7 +398,6 @@ export default function HomeScreen() {
           })()}
         </View>
 
-        {/* Recent Stations */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <ThemedText style={styles.sectionTitle}>최근 본 역</ThemedText>
@@ -485,9 +484,11 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab}>
-        <Ionicons name="map" size={24} color="white" />
+      <TouchableOpacity style={styles.fab} onPress={() => setTrainSheetOpen(true)}>
+        <Ionicons name="train" size={24} color="white" />
       </TouchableOpacity>
+
+      <TrainLocationSheet visible={trainSheetOpen} onClose={() => setTrainSheetOpen(false)} />
 
       <StationDetailModal
         visible={!!detailStation}
