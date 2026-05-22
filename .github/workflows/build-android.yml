@@ -1,4 +1,4 @@
-name: Build Android APK (Production)
+name: Build Android APK
 
 on:
   push:
@@ -8,61 +8,46 @@ on:
 
 jobs:
   build:
-    name: EAS Android APK Build
+    name: Android APK (Gradle)
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-      - name: Get app version
-        id: version
-        run: |
-          VERSION=$(node -e "console.log(require('./app.json').expo.version)")
-          echo "v=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Build Android APK via EAS Cloud
-        run: |
-          eas build \
-            --platform android \
-            --profile preview \
-            --non-interactive \
-            --json \
-            > /tmp/eas_output.json
+      - name: Expo Prebuild (generate Android folder)
+        run: npx expo prebuild --platform android --clean
         env:
-          EXPO_TOKEN: dF8vXz4_slj0nrACcsPP16uQU4bUF4j-RMZg7vXm
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Extract APK download URL
-        id: build_url
+      - name: Build APK
+        working-directory: android
         run: |
-          URL=$(node -e "
-            const raw = require('fs').readFileSync('/tmp/eas_output.json', 'utf8');
-            const start = raw.indexOf('[') !== -1 ? raw.indexOf('[') : raw.indexOf('{');
-            const builds = JSON.parse(raw.substring(start));
-            const b = Array.isArray(builds) ? builds[0] : builds;
-            console.log(b && b.artifacts && (b.artifacts.buildUrl || b.artifacts.applicationArchiveUrl) || '');
-          ")
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+        env:
+          GRADLE_OPTS: -Xmx4g
 
-      - name: Download versioned APK
-        run: |
-          APK_NAME="Yeok-Ap_${{ steps.version.outputs.v }}.apk"
-          curl -L "${{ steps.build_url.outputs.url }}" -o "$APK_NAME"
-          echo "Downloaded: $APK_NAME"
+      - name: Get version
+        id: ver
+        run: echo "v=$(node -e \"console.log(require('./app.json').expo.version)\")" >> $GITHUB_OUTPUT
 
-      - name: Upload APK as GitHub artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Yeok-Ap_${{ steps.version.outputs.v }}
-          path: Yeok-Ap_${{ steps.version.outputs.v }}.apk
+          name: Yeok-Ap_${{ steps.ver.outputs.v }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 90
