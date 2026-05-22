@@ -124,7 +124,7 @@ export default function HomeScreen() {
     return LINE_CONFIG.map(line => {
       const lineStations = stationList.filter(s => s.line_name === line.name);
       if (lineStations.length === 0) {
-        return { ...line, status: '보통', msg: '운행 정보 확인 중', transfers: [], detailedTransfers: [] };
+        return { ...line, status: '정보없음', msg: '혼잡도 정보 없음', transfers: [], detailedTransfers: [] };
       }
       const worstStation = lineStations.reduce((prev, curr) =>
         (levelOrder[curr.congestion_level] || 0) > (levelOrder[prev.congestion_level] || 0) ? curr : prev
@@ -135,19 +135,19 @@ export default function HomeScreen() {
           stationName: s.station_name,
           lines: s.transfer_info.split(',').map((tName: string) => {
             const targetLineData = stationList.find(st => st.line_name === tName.trim());
-            return { name: tName.trim(), status: targetLineData?.congestion_level || '보통' };
+            return { name: tName.trim(), status: targetLineData?.congestion_level ?? '정보없음' };
           })
         })).slice(0, 3);
       const transfers = Array.from(new Set(lineStations.flatMap(s =>
         s.transfer_info ? s.transfer_info.split(',') : []
       ))).filter((t: any) => t.trim() !== line.name).slice(0, 5);
-      let msg = '원활하게 운행 중입니다';
+      let msg = worstStation.congestion_level ? '원활하게 운행 중입니다' : '혼잡도 정보 없음';
       if (worstStation.congestion_level === '폭발' || worstStation.congestion_level === '혼잡') {
         msg = `${worstStation.station_name.replace('역', '')} 매우 혼잡`;
       } else if (worstStation.arrival_message) {
         msg = worstStation.arrival_message;
       }
-      return { ...line, status: worstStation.congestion_level || '여유', msg, transfers, detailedTransfers };
+      return { ...line, status: worstStation.congestion_level ?? '정보없음', msg, transfers, detailedTransfers };
     });
   }, [stationList]);
 
@@ -173,7 +173,8 @@ export default function HomeScreen() {
       case '폭발': return '#FF3B30';
       case '혼잡': return '#FF9500';
       case '보통': return '#FFCC00';
-      default: return '#34C759';
+      case '여유': return '#34C759';
+      default: return '#8E8E93';
     }
   };
 
