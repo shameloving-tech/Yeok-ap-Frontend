@@ -25,7 +25,7 @@ interface Suggestion {
 }
 
 interface RouteStep {
-  type: 'board' | 'travel' | 'transfer';
+  type: 'board' | 'travel' | 'transfer' | 'express';
   station: string;
   line: string;
   prev_line?: string;
@@ -37,25 +37,33 @@ interface RouteResult {
   total_min: number;
   transfers: number;
   stops: number;
+  express_active: boolean;
+  express_used: boolean;
   steps: RouteStep[];
 }
 
 interface Segment {
   line: string;
   stations: string[];
+  isExpress: boolean;
 }
 
 const groupBySegments = (steps: RouteStep[]): Segment[] => {
   const segments: Segment[] = [];
   for (const step of steps) {
     if (step.type === 'transfer' || segments.length === 0) {
-      segments.push({ line: step.line, stations: [step.station] });
+      segments.push({ line: step.line, stations: [step.station], isExpress: false });
     } else {
-      segments[segments.length - 1].stations.push(step.station);
+      const cur = segments[segments.length - 1];
+      cur.stations.push(step.station);
+      if (step.type === 'express') cur.isExpress = true;
     }
   }
   return segments;
 };
+
+const hasLine = (segments: Segment[], lineName: string) =>
+  segments.some((s) => s.line.includes(lineName));
 
 export default function RouteScreen() {
   const insets = useSafeAreaInsets();
@@ -146,6 +154,7 @@ export default function RouteScreen() {
   };
 
   const segments = result ? groupBySegments(result.steps) : [];
+  const shows9LineExpress = result && hasLine(segments, '9호선');
 
   return (
     <KeyboardAvoidingView
@@ -208,7 +217,7 @@ export default function RouteScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 자동완성 면평 */}
+      {/* 자동완성 목록 */}
       {activeField && ((activeField === 'from' ? fromSuggestions : toSuggestions).length > 0) && (
         <View style={styles.suggestionBox}>
           <FlatList
@@ -265,7 +274,38 @@ export default function RouteScreen() {
                 <Ionicons name="train-outline" size={18} color={COLORS.primary} />
                 <ThemedText style={styles.summaryText}>{result.stops}정거장</ThemedText>
               </View>
+              {result.express_used && (
+                <>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.summaryItem}>
+                    <View style={styles.expressChip}>
+                      <ThemedText style={styles.expressChipText}>급행</ThemedText>
+                    </View>
+                  </View>
+                </>
+              )}
             </View>
+
+            {/* 9호선 급행 운행 상태 배너 */}
+            {shows9LineExpress && (
+              <View style={[
+                styles.expressBanner,
+                result.express_active ? styles.expressBannerActive : styles.expressBannerInactive,
+              ]}>
+                <View style={[
+                  styles.expressBannerDot,
+                  { backgroundColor: result.express_active ? '#34C759' : '#8E8E93' },
+                ]} />
+                <ThemedText style={[
+                  styles.expressBannerText,
+                  { color: result.express_active ? '#1C6E33' : '#636366' },
+                ]}>
+                  {result.express_active
+                    ? '현재 9호선 급행 운행 중'
+                    : '현재 9호선 급행 미운행 시간대'}
+                </ThemedText>
+              </View>
+            )}
 
             {segments.map((seg, idx) => (
               <View key={idx} style={styles.segmentCard}>
@@ -274,8 +314,17 @@ export default function RouteScreen() {
                     <ThemedText style={styles.lineCircleText}>{getLineNumber(seg.line)}</ThemedText>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <ThemedText style={styles.segmentLine}>{seg.line}</ThemedText>
-                    <ThemedText style={styles.segmentSub}>{seg.stations.length - 1}정거장 이동</ThemedText>
+                    <View style={styles.segmentTitleRow}>
+                      <ThemedText style={styles.segmentLine}>{seg.line}</ThemedText>
+                      {seg.isExpress && (
+                        <View style={styles.expressBadge}>
+                          <ThemedText style={styles.expressBadgeText}>급행</ThemedText>
+                        </View>
+                      )}
+                    </View>
+                    <ThemedText style={styles.segmentSub}>
+                      {seg.isExpress ? '급행 이동' : `${seg.stations.length - 1}정거장 이동`}
+                    </ThemedText>
                   </View>
                 </View>
                 <View style={styles.stationList}>
@@ -284,7 +333,7 @@ export default function RouteScreen() {
                       <View style={[styles.stationDot, { backgroundColor: getLineColor(seg.line) }]} />
                       <ThemedText style={[
                         styles.stationText,
-                        (sIdx === 0 || sIdx === seg.stations.length - 1) && styles.stationTextBold
+                        (sIdx === 0 || sIdx === seg.stations.length - 1) && styles.stationTextBold,
                       ]}>
                         {station}
                       </ThemedText>
@@ -367,12 +416,27 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 14, color: '#FF3B30', textAlign: 'center' },
   summaryCard: {
     flexDirection: 'row', backgroundColor: 'white', borderRadius: 14,
-    padding: 14, marginBottom: 12,
+    padding: 14, marginBottom: 10,
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+    flexWrap: 'wrap',
   },
-  summaryItem: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  summaryDivider: { width: 1, backgroundColor: COLORS.border, marginVertical: 4 },
+  summaryItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 2 },
+  summaryDivider: { width: 1, backgroundColor: COLORS.border, marginVertical: 4, marginHorizontal: 4 },
   summaryText: { fontSize: 13, fontWeight: '700', color: COLORS.textMain },
+  expressChip: {
+    backgroundColor: '#FF9500',
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
+  },
+  expressChipText: { color: 'white', fontSize: 11, fontWeight: '800' },
+  expressBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+    marginBottom: 10,
+  },
+  expressBannerActive: { backgroundColor: '#E8F9EE' },
+  expressBannerInactive: { backgroundColor: '#F2F2F7' },
+  expressBannerDot: { width: 8, height: 8, borderRadius: 4 },
+  expressBannerText: { fontSize: 13, fontWeight: '600' },
   segmentCard: {
     backgroundColor: 'white', borderRadius: 14, padding: 14, marginBottom: 10,
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
@@ -380,8 +444,14 @@ const styles = StyleSheet.create({
   segmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   lineCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   lineCircleText: { color: 'white', fontSize: 13, fontWeight: '800' },
+  segmentTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   segmentLine: { fontSize: 15, fontWeight: '800', color: COLORS.textMain },
   segmentSub: { fontSize: 12, color: COLORS.textSub, marginTop: 1 },
+  expressBadge: {
+    backgroundColor: '#FF9500',
+    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2,
+  },
+  expressBadgeText: { color: 'white', fontSize: 11, fontWeight: '800' },
   stationList: { paddingLeft: 8, gap: 6 },
   stationItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stationDot: { width: 6, height: 6, borderRadius: 3 },
