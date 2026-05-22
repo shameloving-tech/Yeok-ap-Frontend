@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   FlatList,
   KeyboardAvoidingView,
@@ -44,6 +45,7 @@ const STATUS_COLORS: Record<string, string> = {
 const getStatusColor = (status: string) => STATUS_COLORS[status] ?? COLORS.textSub;
 
 const LIKED_REPORTS_KEY = 'liked_reports';
+const FLAGGED_REPORTS_KEY = 'flagged_reports';
 const REPORTS_CACHE_KEY = (line: string) => `reports_cache_${line}`;
 
 const getTimeAgo = (createdAt: string): string => {
@@ -64,6 +66,7 @@ const fixImageUrl = (url: string): string | null => {
 
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
+  const [myNickname, setMyNickname] = useState('');
   const [selectedLine, setSelectedLine] = useState('전체');
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [reports, setReports] = useState<any[]>([]);
@@ -77,34 +80,45 @@ export default function CommunityScreen() {
   const [image, setImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [likedReports, setLikedReports] = useState<Set<number>>(new Set());
+  const [flaggedReports, setFlaggedReports] = useState<Set<number>>(new Set());
   const [commentsReportId, setCommentsReportId] = useState<number | null>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  // 메뉴 시트
+  const [menuItem, setMenuItem] = useState<{ id: number; isOwn: boolean; content: string } | null>(null);
+  // 수정 모달
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editTargetId, setEditTargetId] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState('');
 
-  // 백그라운드 복귀 감지용 refs
   const appStateRef = useRef(AppState.currentState);
   const selectedLineRef = useRef(selectedLine);
   useEffect(() => { selectedLineRef.current = selectedLine; }, [selectedLine]);
 
-  // 앱이 백그라운드에서 돌아올 때 모달 초기화 + 데이터 새로고침
+  useEffect(() => {
+    const loadUser = async () => {
+      const nick = (await AsyncStorage.getItem('user_nickname')) || '';
+      setMyNickname(nick);
+      const raw = await AsyncStorage.getItem(FLAGGED_REPORTS_KEY);
+      if (raw) setFlaggedReports(new Set(JSON.parse(raw)));
+    };
+    loadUser();
+  }, []);
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
       if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
         setIsPostModalOpen(false);
         setCommentsReportId(null);
         setCommentText('');
+        setMenuItem(null);
         const line = selectedLineRef.current;
         const lineParam = line === '전체' ? '' : line;
-        fetch(`${BASE_URL}/reports?line_name=${encodeURIComponent(lineParam)}`, {
-          headers: { Accept: 'application/json' },
-        })
+        fetch(`${BASE_URL}/reports?line_name=${encodeURIComponent(lineParam)}`, { headers: { Accept: 'application/json' } })
           .then(r => { if (r.ok) return r.json(); throw new Error(); })
-          .then(data => {
-            setReports(data);
-            AsyncStorage.setItem(REPORTS_CACHE_KEY(line), JSON.stringify(data));
-          })
+          .then(data => { setReports(data); AsyncStorage.setItem(REPORTS_CACHE_KEY(line), JSON.stringify(data)); })
           .catch(console.error);
       }
       appStateRef.current = nextState;
@@ -154,6 +168,71 @@ export default function CommunityScreen() {
       setLikedReports(likedReports);
       setReports(prev => prev.map(r => r.id === reportId ? { ...r, likes_count: (r.likes_count || 0) + (isLiked ? 1 : -1) } : r));
     }
+  };
+
+  const openMenu = (item: any) => {
+    setMenuItem({ id: item.id, isOwn: item.nickname === myNickname, content: item.content });
+  };
+
+  const handleDelete = () => {
+    const target = menuItem;
+    setMenuItem(null);
+    Alert.alert('삭제', '이 글을 삭제하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제', style: 'destructive',
+        onPress: async () => {
+          if (!target) return;
+          await fetch(`${BASE_URL}/reports/${target.id}?nickname=${encodeURIComponent(myNickname)}`, { method: 'DELETE' });
+          setReports(prev => prev.filter(r => r.id !== target.id));
+          Toast.show({ type: 'success', text1: '삭제되었습니다' });
+        },
+      },
+    ]);
+  };
+
+  const handleFlag = () => {
+    const target = menuItem;
+    setMenuItem(null);
+    Alert.alert('신고', '이 글을 신고하시겠습니까?\n신고한 글은 표시되지 않습니다.', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '신고', style: 'destructive',
+        onPress: async () => {
+          if (!target) return;
+          const updated = new Set(flaggedReports);
+          updated.add(target.id);
+          setFlaggedReports(updated);
+          await AsyncStorage.setItem(FLAGGED_REPORTS_KEY, JSON.stringify([...updated]));
+          setReports(prev => prev.filter(r => r.id !== target.id));
+          Toast.show({ type: 'success', text1: '신고 완료', text2: '해당 글이 숨겹니다.' });
+        },
+      },
+    ]);
+  };
+
+  const handleEdit = () => {
+    if (!menuItem) return;
+    setEditTargetId(menuItem.id);
+    setEditContent(menuItem.content);
+    setMenuItem(null);
+    setEditModalOpen(true);
+  };
+
+  const submitEdit = async () => {
+    if (!editTargetId || !editContent.trim()) return;
+    try {
+      const res = await fetch(`${BASE_URL}/reports/${editTargetId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: { content: editContent.trim(), nickname: myNickname } }),
+      });
+      if (res.ok) {
+        setReports(prev => prev.map(r => r.id === editTargetId ? { ...r, content: editContent.trim() } : r));
+        setEditModalOpen(false);
+        Toast.show({ type: 'success', text1: '수정되었습니다' });
+      }
+    } catch (e) { console.error(e); }
   };
 
   const openComments = async (reportId: number) => {
@@ -244,6 +323,9 @@ export default function CommunityScreen() {
               <ThemedText style={styles.statusBadgeText}>{item.status}</ThemedText>
             </View>
           )}
+          <TouchableOpacity onPress={(e) => { e.stopPropagation(); openMenu(item); }} style={styles.menuBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="ellipsis-vertical" size={16} color={COLORS.textSub} />
+          </TouchableOpacity>
         </View>
         <ThemedText style={styles.feedTitle}>{item.content.split('\n')[0]}</ThemedText>
         <ThemedText style={styles.feedBody} numberOfLines={2}>{item.content}</ThemedText>
@@ -290,7 +372,7 @@ export default function CommunityScreen() {
         <View style={styles.loadingContainer}><ActivityIndicator color={COLORS.primary} /></View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.popularScroll}>
-          {reports.slice(0, 3).map((item: any) => {
+          {reports.filter(r => !flaggedReports.has(r.id)).slice(0, 3).map((item: any) => {
             const isLiked = likedReports.has(item.id);
             return (
               <TouchableOpacity key={item.id} activeOpacity={0.85} onPress={() => router.push(`/report/${item.id}`)} style={styles.popularCard}>
@@ -329,7 +411,7 @@ export default function CommunityScreen() {
         <TouchableOpacity style={styles.headerSearch}><Ionicons name="search" size={24} color={COLORS.textMain} /></TouchableOpacity>
       </View>
       <FlatList
-        data={reports}
+        data={reports.filter(r => !flaggedReports.has(r.id))}
         keyExtractor={(item) => item.id.toString()}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchReports(); }} />}
         ListHeaderComponent={<>{renderPopularPosts()}<View style={styles.newPostsHeader}><ThemedText style={styles.sectionTitle}>신규 글</ThemedText><View style={styles.sortOptions}><ThemedText style={styles.sortActive}>최신순</ThemedText><ThemedText style={styles.sortDivider}>|</ThemedText><ThemedText style={styles.sortInactive}>거리순</ThemedText></View></View></>}
@@ -340,6 +422,7 @@ export default function CommunityScreen() {
         <Ionicons name="pencil" size={24} color="white" />
       </TouchableOpacity>
 
+      {/* 제보 작성 모달 */}
       {isPostModalOpen && (
         <View style={styles.modalOverlay}>
           <SafeAreaView style={{ flex: 1 }}>
@@ -400,6 +483,7 @@ export default function CommunityScreen() {
         </View>
       )}
 
+      {/* 댓글 시트 */}
       <Modal visible={commentsReportId !== null} transparent animationType="slide" onRequestClose={closeComments}>
         <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeComments} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.commentsSheet}>
@@ -434,6 +518,60 @@ export default function CommunityScreen() {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 옵션 메뉴 시트 */}
+      <Modal visible={menuItem !== null} transparent animationType="fade" onRequestClose={() => setMenuItem(null)}>
+        <TouchableOpacity style={styles.menuBackdrop} activeOpacity={1} onPress={() => setMenuItem(null)} />
+        <View style={[styles.optionsSheet, { paddingBottom: insets.bottom + 8 }]}>
+          {menuItem?.isOwn ? (
+            <>
+              <TouchableOpacity style={styles.optionRow} onPress={handleEdit}>
+                <Ionicons name="create-outline" size={22} color={COLORS.textMain} />
+                <ThemedText style={styles.optionText}>수정하기</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.optionRow} onPress={handleDelete}>
+                <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+                <ThemedText style={[styles.optionText, { color: '#FF3B30' }]}>삭제하기</ThemedText>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity style={styles.optionRow} onPress={handleFlag}>
+              <Ionicons name="flag-outline" size={22} color="#FF3B30" />
+              <ThemedText style={[styles.optionText, { color: '#FF3B30' }]}>신고하기</ThemedText>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={[styles.optionRow, styles.optionCancel]} onPress={() => setMenuItem(null)}>
+            <ThemedText style={styles.optionCancelText}>취소</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* 글 수정 모달 */}
+      <Modal visible={editModalOpen} transparent animationType="slide" onRequestClose={() => setEditModalOpen(false)}>
+        <View style={styles.editModalOverlay}>
+          <SafeAreaView style={{ flex: 1 }}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setEditModalOpen(false)} style={styles.modalHeaderBtn}>
+                <Ionicons name="close" size={24} color={COLORS.textMain} />
+              </TouchableOpacity>
+              <ThemedText style={styles.modalTitle}>글 수정</ThemedText>
+              <TouchableOpacity style={styles.modalHeaderBtn} onPress={submitEdit}>
+                <ThemedText style={{ color: COLORS.primary, fontWeight: '700', fontSize: 16 }}>완료</ThemedText>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.editContentInput}
+              multiline
+              textAlignVertical="top"
+              value={editContent}
+              onChangeText={setEditContent}
+              placeholder="내용을 입력하세요"
+              placeholderTextColor={COLORS.textSub}
+              autoFocus
+            />
+          </SafeAreaView>
+        </View>
       </Modal>
     </View>
   );
@@ -480,8 +618,9 @@ const styles = StyleSheet.create({
   circleLineText: { color: 'white', fontSize: 12, fontWeight: '800' },
   feedMeta: { flex: 1, fontSize: 14, color: COLORS.textSub, fontWeight: '500' },
   feedNickname: { fontSize: 13, color: COLORS.textSub, fontWeight: '600', marginRight: 6 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 4 },
   statusBadgeText: { fontSize: 11, color: 'white', fontWeight: '700' },
+  menuBtn: { padding: 2 },
   feedTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textMain, marginBottom: 8 },
   feedBody: { fontSize: 14, color: COLORS.textSub, lineHeight: 20, marginBottom: 12 },
   feedImage: { width: '100%', height: 200, borderRadius: 16, marginBottom: 12 },
@@ -492,7 +631,7 @@ const styles = StyleSheet.create({
   fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 20, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', elevation: 8 },
   modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#F8F9FB', zIndex: 1000 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  modalHeaderBtn: { width: 40, alignItems: 'center' },
+  modalHeaderBtn: { width: 50, alignItems: 'center' },
   modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textMain },
   modalBody: { flex: 1, padding: 20 },
   formSectionLabel: { fontSize: 16, fontWeight: '800', color: COLORS.textMain, marginBottom: 6, marginTop: 4 },
@@ -540,4 +679,14 @@ const styles = StyleSheet.create({
   commentInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: 1, borderTopColor: COLORS.border },
   commentInput: { flex: 1, backgroundColor: COLORS.border, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, color: COLORS.textMain, marginRight: 10 },
   commentSendBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  // 옵션 메뉴
+  menuBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
+  optionsSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 8 },
+  optionRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 18, gap: 14 },
+  optionText: { fontSize: 16, fontWeight: '600', color: COLORS.textMain },
+  optionCancel: { borderTopWidth: 1, borderTopColor: COLORS.border, marginTop: 4, justifyContent: 'center' },
+  optionCancelText: { fontSize: 16, fontWeight: '600', color: COLORS.textSub, flex: 1, textAlign: 'center' },
+  // 수정 모달
+  editModalOverlay: { flex: 1, backgroundColor: 'white' },
+  editContentInput: { flex: 1, padding: 20, fontSize: 15, color: COLORS.textMain, lineHeight: 24 },
 });
