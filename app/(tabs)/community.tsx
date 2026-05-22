@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -81,6 +82,35 @@ export default function CommunityScreen() {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+
+  // 백그라운드 복귀 감지용 refs
+  const appStateRef = useRef(AppState.currentState);
+  const selectedLineRef = useRef(selectedLine);
+  useEffect(() => { selectedLineRef.current = selectedLine; }, [selectedLine]);
+
+  // 앱이 백그라운드에서 돌아올 때 모달 초기화 + 데이터 새로고침
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
+        setIsPostModalOpen(false);
+        setCommentsReportId(null);
+        setCommentText('');
+        const line = selectedLineRef.current;
+        const lineParam = line === '전체' ? '' : line;
+        fetch(`${BASE_URL}/reports?line_name=${encodeURIComponent(lineParam)}`, {
+          headers: { Accept: 'application/json' },
+        })
+          .then(r => { if (r.ok) return r.json(); throw new Error(); })
+          .then(data => {
+            setReports(data);
+            AsyncStorage.setItem(REPORTS_CACHE_KEY(line), JSON.stringify(data));
+          })
+          .catch(console.error);
+      }
+      appStateRef.current = nextState;
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => { loadReports(); loadLikedReports(); }, [selectedLine]);
 
@@ -343,12 +373,12 @@ export default function CommunityScreen() {
               </View>
               <View style={styles.noticeBanner}>
                 <Ionicons name="information-circle-outline" size={18} color={COLORS.textSub} style={{ marginRight: 8, flexShrink: 0 }} />
-                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쿈감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
+                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쾌감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
               </View>
               <ThemedText style={styles.formSectionLabel}>제보 내용</ThemedText>
               <ThemedText style={styles.formSectionSub}>현재 역 주변의 불편사항이나 실시간 정보를 공유해 주세요.</ThemedText>
               <TextInput style={styles.titleInput} placeholder="제목을 입력해 주세요." placeholderTextColor={COLORS.textSub} value={title} onChangeText={setTitle} />
-              <TextInput style={styles.contentInput} placeholder={'제보 내용을 입력해 주세요.\n(예: 3번 출구 에스컈레이터 고장, 열차 지연 등)'} placeholderTextColor={COLORS.textSub} multiline textAlignVertical="top" value={content} onChangeText={setContent} />
+              <TextInput style={styles.contentInput} placeholder={'제보 내용을 입력해 주세요.\n(예: 3번 출구 에스컬레이터 고장, 열차 지연 등)'} placeholderTextColor={COLORS.textSub} multiline textAlignVertical="top" value={content} onChangeText={setContent} />
               <View style={styles.photoRow}>
                 <TouchableOpacity style={styles.photoAddBtn} onPress={pickImage}>
                   <Ionicons name="image-outline" size={26} color={COLORS.textSub} />
