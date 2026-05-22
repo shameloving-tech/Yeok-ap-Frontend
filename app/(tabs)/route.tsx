@@ -25,7 +25,7 @@ interface Suggestion {
 }
 
 interface RouteStep {
-  type: 'board' | 'travel' | 'transfer';
+  type: 'board' | 'travel' | 'transfer' | 'express';
   station: string;
   line: string;
   prev_line?: string;
@@ -43,14 +43,18 @@ interface RouteResult {
 interface Segment {
   line: string;
   stations: string[];
+  isExpress: boolean;
 }
 
 const groupBySegments = (steps: RouteStep[]): Segment[] => {
   const segments: Segment[] = [];
   for (const step of steps) {
     if (step.type === 'transfer' || segments.length === 0) {
-      segments.push({ line: step.line, stations: [step.station] });
+      segments.push({ line: step.line, stations: [step.station], isExpress: false });
     } else {
+      if (step.type === 'express') {
+        segments[segments.length - 1].isExpress = true;
+      }
       segments[segments.length - 1].stations.push(step.station);
     }
   }
@@ -69,79 +73,50 @@ export default function RouteScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (activeField !== 'from' || !from.trim()) {
-      setFromSuggestions([]);
-      return;
-    }
+    if (activeField !== 'from' || !from.trim()) { setFromSuggestions([]); return; }
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`${BASE_URL}/api/v1/stations?q=${encodeURIComponent(from.trim())}`);
         setFromSuggestions(await res.json());
-      } catch {
-        setFromSuggestions([]);
-      }
+      } catch { setFromSuggestions([]); }
     }, 300);
     return () => clearTimeout(t);
   }, [from, activeField]);
 
   useEffect(() => {
-    if (activeField !== 'to' || !to.trim()) {
-      setToSuggestions([]);
-      return;
-    }
+    if (activeField !== 'to' || !to.trim()) { setToSuggestions([]); return; }
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`${BASE_URL}/api/v1/stations?q=${encodeURIComponent(to.trim())}`);
         setToSuggestions(await res.json());
-      } catch {
-        setToSuggestions([]);
-      }
+      } catch { setToSuggestions([]); }
     }, 300);
     return () => clearTimeout(t);
   }, [to, activeField]);
 
   const handleSearch = async () => {
-    if (!from.trim() || !to.trim()) {
-      setError('출발역과 도착역을 모두 입력하세요');
-      return;
-    }
+    if (!from.trim() || !to.trim()) { setError('출발역과 도착역을 모두 입력하세요'); return; }
     setLoading(true);
     setError(null);
     setResult(null);
     setActiveField(null);
     try {
       const fromName = from.trim().replace(/역$/, '');
-      const toName = to.trim().replace(/역$/, '');
+      const toName   = to.trim().replace(/역$/, '');
       const url = `${BASE_URL}/api/v1/stations/route?from=${encodeURIComponent(fromName)}&to=${encodeURIComponent(toName)}`;
-      const res = await fetch(url);
+      const res  = await fetch(url);
       const json = await res.json();
-      if (!res.ok) {
-        setError(json.error || '경로를 찾을 수 없습니다');
-      } else {
-        setResult(json);
-      }
-    } catch {
-      setError('네트워크 오류');
-    } finally {
-      setLoading(false);
-    }
+      if (!res.ok) setError(json.error || '경로를 찾을 수 없습니다');
+      else setResult(json);
+    } catch { setError('네트워크 오류'); }
+    finally { setLoading(false); }
   };
 
-  const swapStations = () => {
-    const tmp = from;
-    setFrom(to);
-    setTo(tmp);
-    setResult(null);
-  };
+  const swapStations = () => { const tmp = from; setFrom(to); setTo(tmp); setResult(null); };
 
   const selectSuggestion = (s: Suggestion) => {
-    if (activeField === 'from') {
-      setFrom(s.station_name);
-      setFromSuggestions([]);
-    } else if (activeField === 'to') {
-      setTo(s.station_name);
-      setToSuggestions([]);
-    }
+    if (activeField === 'from') { setFrom(s.station_name); setFromSuggestions([]); }
+    else if (activeField === 'to') { setTo(s.station_name); setToSuggestions([]); }
     setActiveField(null);
   };
 
@@ -208,7 +183,6 @@ export default function RouteScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 자동완성 면평 */}
       {activeField && ((activeField === 'from' ? fromSuggestions : toSuggestions).length > 0) && (
         <View style={styles.suggestionBox}>
           <FlatList
@@ -228,7 +202,6 @@ export default function RouteScreen() {
         </View>
       )}
 
-      {/* 결과 */}
       <ScrollView
         style={styles.resultArea}
         contentContainerStyle={{ paddingBottom: 120 }}
@@ -274,20 +247,37 @@ export default function RouteScreen() {
                     <ThemedText style={styles.lineCircleText}>{getLineNumber(seg.line)}</ThemedText>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <ThemedText style={styles.segmentLine}>{seg.line}</ThemedText>
+                    <View style={styles.segmentTitleRow}>
+                      <ThemedText style={styles.segmentLine}>{seg.line}</ThemedText>
+                      {seg.isExpress && (
+                        <View style={styles.expressBadge}>
+                          <ThemedText style={styles.expressBadgeText}>급행</ThemedText>
+                        </View>
+                      )}
+                    </View>
                     <ThemedText style={styles.segmentSub}>{seg.stations.length - 1}정거장 이동</ThemedText>
                   </View>
                 </View>
                 <View style={styles.stationList}>
                   {seg.stations.map((station, sIdx) => (
                     <View key={sIdx} style={styles.stationItem}>
-                      <View style={[styles.stationDot, { backgroundColor: getLineColor(seg.line) }]} />
+                      <View style={[styles.stationDot, {
+                        backgroundColor: getLineColor(seg.line),
+                        width: (sIdx === 0 || sIdx === seg.stations.length - 1) ? 8 : 6,
+                        height: (sIdx === 0 || sIdx === seg.stations.length - 1) ? 8 : 6,
+                        borderRadius: 4,
+                      }]} />
                       <ThemedText style={[
                         styles.stationText,
-                        (sIdx === 0 || sIdx === seg.stations.length - 1) && styles.stationTextBold
+                        (sIdx === 0 || sIdx === seg.stations.length - 1) && styles.stationTextBold,
                       ]}>
                         {station}
                       </ThemedText>
+                      {seg.isExpress && sIdx > 0 && sIdx < seg.stations.length - 1 && (
+                        <View style={styles.expressSkipBadge}>
+                          <ThemedText style={styles.expressSkipText}>급행역</ThemedText>
+                        </View>
+                      )}
                     </View>
                   ))}
                 </View>
@@ -299,8 +289,11 @@ export default function RouteScreen() {
                 )}
               </View>
             ))}
+
             <View style={{ height: 30 }} />
-            <ThemedText style={styles.disclaimer}>* 소요시간은 역간 2분/환승 5분 기준 예상치. 실제와 다를 수 있습니다.</ThemedText>
+            <ThemedText style={styles.disclaimer}>
+              * 숫자는 역간 2분 / 환승 5분 / 9호선 급행 실제 시간 기준 예상치. 실제와 다를 수 있어요.
+            </ThemedText>
           </View>
         )}
 
@@ -320,14 +313,8 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingVertical: 12 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: COLORS.primary },
   inputCard: {
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
+    backgroundColor: 'white', marginHorizontal: 20, borderRadius: 16, padding: 16,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
   },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   dot: { width: 10, height: 10, borderRadius: 5 },
@@ -335,21 +322,16 @@ const styles = StyleSheet.create({
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 4 },
   dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
   swapBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: 'white',
-    justifyContent: 'center', alignItems: 'center',
-    marginHorizontal: 8,
+    width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', marginHorizontal: 8,
   },
   searchBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: COLORS.primary, borderRadius: 12,
-    paddingVertical: 12, marginTop: 12, gap: 6,
+    backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 12, marginTop: 12, gap: 6,
   },
   searchBtnText: { color: 'white', fontWeight: '700', fontSize: 14 },
   suggestionBox: {
-    marginHorizontal: 20, marginTop: 10,
-    backgroundColor: 'white', borderRadius: 12,
+    marginHorizontal: 20, marginTop: 10, backgroundColor: 'white', borderRadius: 12,
     maxHeight: 220, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
   suggestionItem: {
@@ -366,8 +348,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 14, color: COLORS.textSub },
   errorText: { fontSize: 14, color: '#FF3B30', textAlign: 'center' },
   summaryCard: {
-    flexDirection: 'row', backgroundColor: 'white', borderRadius: 14,
-    padding: 14, marginBottom: 12,
+    flexDirection: 'row', backgroundColor: 'white', borderRadius: 14, padding: 14, marginBottom: 12,
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
   summaryItem: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
@@ -378,15 +359,25 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
   segmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
+  segmentTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   lineCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   lineCircleText: { color: 'white', fontSize: 13, fontWeight: '800' },
   segmentLine: { fontSize: 15, fontWeight: '800', color: COLORS.textMain },
   segmentSub: { fontSize: 12, color: COLORS.textSub, marginTop: 1 },
+  expressBadge: {
+    backgroundColor: '#FF3B30', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6,
+  },
+  expressBadgeText: { color: 'white', fontSize: 11, fontWeight: '800' },
   stationList: { paddingLeft: 8, gap: 6 },
   stationItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stationDot: { width: 6, height: 6, borderRadius: 3 },
+  stationDot: { borderRadius: 4 },
   stationText: { fontSize: 13, color: COLORS.textMain },
   stationTextBold: { fontWeight: '800' },
+  expressSkipBadge: {
+    marginLeft: 4, backgroundColor: '#FF3B3015', paddingHorizontal: 5,
+    paddingVertical: 1, borderRadius: 4,
+  },
+  expressSkipText: { fontSize: 9, color: '#FF3B30', fontWeight: '700' },
   transferBox: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border,
