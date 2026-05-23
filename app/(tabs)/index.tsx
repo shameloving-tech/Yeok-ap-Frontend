@@ -32,6 +32,7 @@ if (typeof global.removeEventListener !== 'function') {
 }
 
 const RECENT_STATIONS_KEY = 'recent_stations';
+const MAX_NEARBY_KM = 5;
 
 export const saveRecentStation = async (station: any) => {
   try {
@@ -50,6 +51,7 @@ export default function HomeScreen() {
   const [showOnlyFollowed, setShowOnlyFollowed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+  const [locationLoaded, setLocationLoaded] = useState(false);
   const [recentStations, setRecentStations] = useState<any[]>([]);
   const [favoriteStations, setFavoriteStations] = useState<FavoriteStation[]>([]);
   const [detailStation, setDetailStation] = useState<any>(null);
@@ -74,7 +76,10 @@ export default function HomeScreen() {
   const requestLocationPermission = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        setLocationLoaded(true);
+        return;
+      }
 
       const lastLocation = await Location.getLastKnownPositionAsync({});
       if (lastLocation) setUserLocation(lastLocation);
@@ -86,14 +91,12 @@ export default function HomeScreen() {
         ]) as Location.LocationObject;
         setUserLocation(location);
       } catch {
-        if (!userLocation) {
-          setUserLocation({
-            coords: { latitude: 37.4979, longitude: 127.0276 },
-            timestamp: Date.now(),
-          } as any);
-        }
+        // GPS timeout — keep last known position (may be null if first run)
       }
     } catch {}
+    finally {
+      setLocationLoaded(true);
+    }
   };
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -123,10 +126,10 @@ export default function HomeScreen() {
         nearest = { ...station, distance };
       }
     });
+    if (minDistance > MAX_NEARBY_KM) return null;
     return nearest;
   }, [userLocation, stationList]);
 
-  // 즐겨찾기 역을 stationList와 머지해서 실시간 혼잡도 부여
   const favoriteStationsWithStatus = useMemo(() => {
     return favoriteStations.map(fav => {
       const live = stationList.find(s => s.station_name === fav.station_name && s.line_name === fav.line_name);
@@ -276,7 +279,6 @@ export default function HomeScreen() {
           </LinearGradient>
         </View>
 
-        {/* 즐겨찾기 역 */}
         {favoriteStationsWithStatus.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -400,7 +402,6 @@ export default function HomeScreen() {
           })()}
         </View>
 
-        {/* Recent Stations */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <ThemedText style={styles.sectionTitle}>최근 본 역</ThemedText>
@@ -476,6 +477,11 @@ export default function HomeScreen() {
                 <TouchableOpacity style={styles.routeBtn} onPress={() => openStationDetail(nearestStation)}>
                   <ThemedText style={styles.routeBtnText}>상세</ThemedText>
                 </TouchableOpacity>
+              </View>
+            ) : locationLoaded ? (
+              <View style={styles.nearbyEmpty}>
+                <Ionicons name="location-outline" size={28} color={COLORS.textSub} />
+                <ThemedText style={styles.nearbyEmptyText}>주변 5km 이내에 지하철역이 없습니다</ThemedText>
               </View>
             ) : (
               <View style={styles.nearbyLoading}>
@@ -612,8 +618,10 @@ const styles = StyleSheet.create({
   nearbyStationInfo: { fontSize: 14, color: COLORS.textSub, marginTop: 4 },
   routeBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
   routeBtnText: { color: 'white', fontSize: 14, fontWeight: '700' },
-  nearbyLoading: { padding: 10, alignItems: 'center' },
-  loadingText: { marginTop: 8, fontSize: 12, color: COLORS.textSub },
+  nearbyLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  nearbyEmpty: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  nearbyEmptyText: { fontSize: 14, color: COLORS.textSub },
+  loadingText: { fontSize: 12, color: COLORS.textSub },
   filterToggle: {
     flexDirection: 'row',
     backgroundColor: COLORS.border,

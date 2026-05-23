@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Modal,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -21,10 +22,13 @@ const SHEET_HEIGHT = SCREEN_HEIGHT * 0.72;
 const SUPPORTED_LINES = [
   '2호선', '1호선', '3호선', '4호선', '5호선',
   '6호선', '7호선', '8호선', '9호선',
-  '수인분당선', '공항철도', '신분당선', '경의중앙선',
+  '수인분당선', '경의중앙선', '공항철도', '신분당선',
 ];
 
+const LIMITED_LINES = new Set(['공항철도', '신분당선']);
+
 const FETCH_MS    = 20_000;
+const TIMEOUT_MS  = 15_000;
 const AVG_SEG_SEC = 150;
 const MAX_TRAINS  = 5;
 
@@ -39,7 +43,7 @@ type Train = {
 };
 
 const fmt = (s: number) => {
-  if (s <= 0) return '곳 도착';
+  if (s <= 0) return '곧 도착';
   const m = Math.floor(s / 60);
   const sec = s % 60;
   return m > 0 ? `${m}분 ${sec}초` : `${sec}초`;
@@ -103,22 +107,31 @@ export function TrainLocationSheet({
   const [line,    setLine]    = useState('2호선');
   const [trains,  setTrains]  = useState<Train[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(false);
   const [secs,    setSecs]    = useState<Record<string, number>>({});
   const fetchTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
   const countTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadTrains = useCallback(async (l: string) => {
     setLoading(true);
+    setError(false);
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/trains?line=${encodeURIComponent(l)}`);
-      if (!res.ok) return;
+      const res = await fetch(
+        `${BASE_URL}/api/v1/trains?line=${encodeURIComponent(l)}`,
+        { signal: ctrl.signal },
+      );
+      clearTimeout(timeout);
+      if (!res.ok) { setError(true); return; }
       const data: Train[] = await res.json();
       setTrains(data.slice(0, MAX_TRAINS));
       const map: Record<string, number> = {};
       data.forEach(t => { map[t.train_no] = t.barvlDt; });
       setSecs(map);
     } catch (e) {
-      console.error('TrainLocationSheet:', e);
+      clearTimeout(timeout);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -127,6 +140,7 @@ export function TrainLocationSheet({
   useEffect(() => {
     if (!visible) return;
     setTrains([]);
+    setError(false);
     loadTrains(line);
     fetchTimer.current = setInterval(() => loadTrains(line), FETCH_MS);
     return () => { if (fetchTimer.current) clearInterval(fetchTimer.current); };
@@ -145,6 +159,8 @@ export function TrainLocationSheet({
   }, [visible]);
 
   const color = getLineColor(line);
+  const isLimited = LIMITED_LINES.has(line);
+  const handleRetry = () => { setTrains([]); loadTrains(line); };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -156,13 +172,14 @@ export function TrainLocationSheet({
           <View style={s.header}>
             <View style={[s.lineAccent, { backgroundColor: color }]} />
             <ThemedText style={s.title}>열차 위치</ThemedText>
-            <ThemedText style={s.sub}>20초 자동 갱신 · 연착 자동 반영</ThemedText>
+            <ThemedText style={s.sub}>
+              {isLimited ? '일부 노선 실시간 데이터 제한' : '20초 자동 갱신 · 연착 자동 반영'}
+            </ThemedText>
             <TouchableOpacity onPress={onClose} style={s.closeBtn}>
               <Ionicons name="close" size={22} color={COLORS.textSub} />
             </TouchableOpacity>
           </View>
 
-          {/* 탭 행 — height 고정으로 버튼이 세로로 늘어나는 것 방지 */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -172,15 +189,15 @@ export function TrainLocationSheet({
             {SUPPORTED_LINES.map(l => {
               const c = getLineColor(l);
               const active = l === line;
+              const limited = LIMITED_LINES.has(l);
               return (
                 <TouchableOpacity
                   key={l}
-                  onPress={() => { setLine(l); setTrains([]); }}
+                  onPress={() => { setLine(l); setTrains([]); setError(false); }}
                   style={[
                     s.tab,
-                    active
-                      ? { backgroundColor: c, borderColor: c }
-                      : { borderColor: '#E5E5EA' },
+                    active ? { backgroundColor: c, borderColor: c } : { borderColor: '#E5E5EA' },
+                    limited && !active && { opacity: 0.55 },
                   ]}
                 >
                   <View style={[s.tabDot, { backgroundColor: active ? 'white' : c }]} />
@@ -196,17 +213,43 @@ export function TrainLocationSheet({
             style={s.body}
             contentContainerStyle={s.bodyContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading && trains.length > 0}
+                onRefresh={handleRetry}
+                colors={[color]}
+                tintColor={color}
+              />
+            }
           >
-            {loading ? (
+            {loading && trains.length === 0 ? (
               <View style={s.center}>
                 <ActivityIndicator color={color} size="large" />
-                <ThemedText style={s.hint}>열차 정보를 가져오는 중입니다...</ThemedText>
+                <ThemedText style={s.hint}>열차 정보를 불러오는 중...</ThemedText>
+              </View>
+            ) : error ? (
+              <View style={s.center}>
+                <Ionicons name="cloud-offline-outline" size={44} color="#C7C7CC" />
+                <ThemedText style={s.hint}>연결에 실패했어요</ThemedText>
+                <ThemedText style={[s.hint, { fontSize: 12 }]}>
+                  서버가 깨어나는 중이거나 네트워크를 확인해 주세요
+                </ThemedText>
+                <TouchableOpacity onPress={handleRetry} style={[s.retryBtn, { backgroundColor: color }]}>
+                  <ThemedText style={s.retryText}>다시 시도</ThemedText>
+                </TouchableOpacity>
               </View>
             ) : trains.length === 0 ? (
               <View style={s.center}>
                 <Ionicons name="train-outline" size={44} color="#C7C7CC" />
-                <ThemedText style={s.hint}>현재 {line} 운행 열차 정보 없음</ThemedText>
-                <ThemedText style={[s.hint, { fontSize: 12 }]}>시운 외 시간대이거나 API 응답 없음</ThemedText>
+                <ThemedText style={s.hint}>지금은 운행 정보가 없어요</ThemedText>
+                <ThemedText style={[s.hint, { fontSize: 12 }]}>
+                  {isLimited
+                    ? '이 노선은 실시간 데이터가 지원되지 않을 수 있어요'
+                    : '운행이 종료됐거나 잠시 후 다시 확인해 보세요'}
+                </ThemedText>
+                <TouchableOpacity onPress={handleRetry} style={[s.retryBtn, { backgroundColor: color }]}>
+                  <ThemedText style={s.retryText}>새로고침</ThemedText>
+                </TouchableOpacity>
               </View>
             ) : (
               <>
@@ -234,86 +277,42 @@ export function TrainLocationSheet({
 }
 
 const s = StyleSheet.create({
-  root: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.38)',
-  },
-  sheet: {
-    height: SHEET_HEIGHT,
-    backgroundColor: 'white',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 12,
-  },
-  handle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: '#E5E5EA',
-    alignSelf: 'center', marginBottom: 18,
-  },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, marginBottom: 12, gap: 10,
-  },
+  root: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.38)' },
+  sheet: { height: SHEET_HEIGHT, backgroundColor: 'white', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 12 },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E5EA', alignSelf: 'center', marginBottom: 18 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12, gap: 10 },
   lineAccent: { width: 4, height: 20, borderRadius: 2 },
   title: { fontSize: 18, fontWeight: '800', color: COLORS.textMain },
   sub: { flex: 1, fontSize: 11, color: COLORS.textSub },
   closeBtn: { padding: 4 },
   tabScroll: { height: 48, flexGrow: 0 },
   tabContent: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    gap: 5,
-  },
+  tab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, gap: 5 },
   tabDot: { width: 8, height: 8, borderRadius: 4 },
   tabText: { fontSize: 12, fontWeight: '700' },
   body: { flex: 1, marginTop: 8 },
   bodyContent: { padding: 16, gap: 10, flexGrow: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 40 },
   hint: { fontSize: 14, color: COLORS.textSub, textAlign: 'center' },
-  footer: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    justifyContent: 'center', paddingVertical: 8,
-  },
+  retryBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 14 },
+  retryText: { color: 'white', fontWeight: '700', fontSize: 14 },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: 5, justifyContent: 'center', paddingVertical: 8 },
   footerText: { fontSize: 11, color: COLORS.textSub },
 });
 
 const card = StyleSheet.create({
-  wrap: {
-    backgroundColor: '#F8F9FB',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-  },
+  wrap: { backgroundColor: '#F8F9FB', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#EFEFEF' },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 18, gap: 8 },
-  badge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1.5, borderRadius: 10,
-    paddingHorizontal: 8, paddingVertical: 3,
-  },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
   badgeText: { fontSize: 12, fontWeight: '700' },
   dir: { flex: 1, fontSize: 12, color: COLORS.textSub, fontWeight: '600' },
-  timePill: {
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10,
-  },
+  timePill: { backgroundColor: '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   timeText: { fontSize: 13, fontWeight: '800', color: COLORS.textMain },
   seg: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 2 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#C7C7CC' },
   track: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 20 },
   filled: { height: 4, borderRadius: 2 },
-  trainIcon: {
-    width: 22, height: 22, borderRadius: 11,
-    justifyContent: 'center', alignItems: 'center',
-    marginHorizontal: 1, zIndex: 1,
-    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
-  },
+  trainIcon: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginHorizontal: 1, zIndex: 1, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3 },
   empty: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2 },
   names: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   stName: { fontSize: 12, color: COLORS.textSub, fontWeight: '600', maxWidth: '46%' },
