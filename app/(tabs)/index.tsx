@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { StationDetailModal } from '@/components/StationDetailModal';
+import { TrainLocationSheet } from '@/app/components/TrainLocationSheet';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { LINE_CONFIG, getLineColor, getLineNumber } from '@/constants/lines';
 import { useSubwayData } from '@/hooks/useSubwayData';
@@ -52,6 +53,7 @@ export default function HomeScreen() {
   const [recentStations, setRecentStations] = useState<any[]>([]);
   const [favoriteStations, setFavoriteStations] = useState<FavoriteStation[]>([]);
   const [detailStation, setDetailStation] = useState<any>(null);
+  const [trainSheetOpen, setTrainSheetOpen] = useState(false);
 
   useEffect(() => {
     loadPreferences();
@@ -485,9 +487,11 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab}>
-        <Ionicons name="map" size={24} color="white" />
+      <TouchableOpacity style={styles.fab} onPress={() => setTrainSheetOpen(true)}>
+        <Ionicons name="train" size={24} color="white" />
       </TouchableOpacity>
+
+      <TrainLocationSheet visible={trainSheetOpen} onClose={() => setTrainSheetOpen(false)} />
 
       <StationDetailModal
         visible={!!detailStation}

@@ -28,7 +28,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Expo Prebuild (generate Android folder)
+      - name: Expo Prebuild
         run: npx expo prebuild --platform android --clean
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -43,10 +43,10 @@ jobs:
 
       - name: Get version
         id: ver
-        run: echo "v=$(node -e \"console.log(require('./app.json').expo.version)\")" >> $GITHUB_OUTPUT
+        run: |
+          echo "v=$(jq -r '.expo.version' app.json)" >> $GITHUB_OUTPUT
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: Yeok-Ap_${{ steps.ver.outputs.v }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
