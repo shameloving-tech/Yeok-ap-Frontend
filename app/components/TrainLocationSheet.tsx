@@ -144,77 +144,84 @@ export function TrainLocationSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={onClose} />
-      <View style={[s.sheet, { paddingBottom: insets.bottom + 16 }]}>
-        <View style={s.handle} />
+      {/* 전체를 flex:1로 감싸고 backdrop을 절대위치로 → 시트가 올바른 높이를 가짐 */}
+      <View style={s.root}>
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
+        <View style={[s.sheet, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={s.handle} />
 
-        <View style={s.header}>
-          <View style={[s.lineAccent, { backgroundColor: color }]} />
-          <ThemedText style={s.title}>열차 위치</ThemedText>
-          <ThemedText style={s.sub}>20초 자동 갱신 · 연착 자동 반영</ThemedText>
-          <TouchableOpacity onPress={onClose} style={s.closeBtn}>
-            <Ionicons name="close" size={22} color={COLORS.textSub} />
-          </TouchableOpacity>
-        </View>
+          <View style={s.header}>
+            <View style={[s.lineAccent, { backgroundColor: color }]} />
+            <ThemedText style={s.title}>열차 위치</ThemedText>
+            <ThemedText style={s.sub}>20초 자동 갱신 · 연착 자동 반영</ThemedText>
+            <TouchableOpacity onPress={onClose} style={s.closeBtn}>
+              <Ionicons name="close" size={22} color={COLORS.textSub} />
+            </TouchableOpacity>
+          </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.tabs}
-        >
-          {SUPPORTED_LINES.map(l => {
-            const c = getLineColor(l);
-            const active = l === line;
-            return (
-              <TouchableOpacity
-                key={l}
-                onPress={() => setLine(l)}
-                style={[
-                  s.tab,
-                  active
-                    ? { backgroundColor: c, borderColor: c }
-                    : { borderColor: '#E5E5EA' },
-                ]}
-              >
-                <View style={[s.tabDot, { backgroundColor: active ? 'white' : c }]} />
-                <ThemedText style={[s.tabText, { color: active ? 'white' : COLORS.textSub }]}>
-                  {l}
-                </ThemedText>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.tabs}
+          >
+            {SUPPORTED_LINES.map(l => {
+              const c = getLineColor(l);
+              const active = l === line;
+              return (
+                <TouchableOpacity
+                  key={l}
+                  onPress={() => { setLine(l); setTrains([]); }}
+                  style={[
+                    s.tab,
+                    active
+                      ? { backgroundColor: c, borderColor: c }
+                      : { borderColor: '#E5E5EA' },
+                  ]}
+                >
+                  <View style={[s.tabDot, { backgroundColor: active ? 'white' : c }]} />
+                  <ThemedText style={[s.tabText, { color: active ? 'white' : COLORS.textSub }]}>
+                    {l}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-        <View style={s.body}>
-          {loading ? (
-            <View style={s.center}>
-              <ActivityIndicator color={color} size="large" />
-              <ThemedText style={s.hint}>열차 정보를 가져오는 중입니다...</ThemedText>
-            </View>
-          ) : trains.length === 0 ? (
-            <View style={s.center}>
-              <Ionicons name="train-outline" size={44} color="#C7C7CC" />
-              <ThemedText style={s.hint}>현재 운행 중인 {line} 열차 정보없음</ThemedText>
-              <ThemedText style={[s.hint, { fontSize: 12 }]}>시운 이외 시간대이거나 API 응답 없음</ThemedText>
-            </View>
-          ) : (
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-              {trains.map(t => (
-                <TrainCard
-                  key={t.train_no}
-                  train={t}
-                  color={color}
-                  remaining={secs[t.train_no] ?? t.barvlDt}
-                />
-              ))}
-              <View style={s.footer}>
-                <Ionicons name="information-circle-outline" size={13} color={COLORS.textSub} />
-                <ThemedText style={s.footerText}>
-                  열차 위치는 도착 예상 시간 기반 보간값입니다
-                </ThemedText>
+          {/* body: flex:1로 남은 공간 채움 */}
+          <View style={s.body}>
+            {loading ? (
+              <View style={s.center}>
+                <ActivityIndicator color={color} size="large" />
+                <ThemedText style={s.hint}>열차 정보를 가져오는 중입니다...</ThemedText>
               </View>
-            </ScrollView>
-          )}
+            ) : trains.length === 0 ? (
+              <View style={s.center}>
+                <Ionicons name="train-outline" size={44} color="#C7C7CC" />
+                <ThemedText style={s.hint}>현재 {line} 운행 열차 정보 없음</ThemedText>
+                <ThemedText style={[s.hint, { fontSize: 12 }]}>시운 외 시간대이거나 API 응답 없음</ThemedText>
+              </View>
+            ) : (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ padding: 16, gap: 10 }}
+              >
+                {trains.map(t => (
+                  <TrainCard
+                    key={t.train_no}
+                    train={t}
+                    color={color}
+                    remaining={secs[t.train_no] ?? t.barvlDt}
+                  />
+                ))}
+                <View style={s.footer}>
+                  <Ionicons name="information-circle-outline" size={13} color={COLORS.textSub} />
+                  <ThemedText style={s.footerText}>
+                    열차 위치는 도착 예상 시간 기반 보간값입니다
+                  </ThemedText>
+                </View>
+              </ScrollView>
+            )}
+          </View>
         </View>
       </View>
     </Modal>
@@ -222,12 +229,16 @@ export function TrainLocationSheet({
 }
 
 const s = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.38)' },
+  root: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.38)',
+  },
   sheet: {
     backgroundColor: 'white',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: '80%',
+    maxHeight: '82%',
     paddingTop: 12,
   },
   handle: {
@@ -251,8 +262,8 @@ const s = StyleSheet.create({
   },
   tabDot: { width: 8, height: 8, borderRadius: 4 },
   tabText: { fontSize: 12, fontWeight: '700' },
-  body: { flex: 1, paddingHorizontal: 16 },
-  center: { paddingVertical: 40, alignItems: 'center', gap: 10 },
+  body: { flex: 1 },
+  center: { flex: 1, paddingVertical: 40, alignItems: 'center', justifyContent: 'center', gap: 10 },
   hint: { fontSize: 14, color: COLORS.textSub, textAlign: 'center' },
   footer: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -283,13 +294,8 @@ const card = StyleSheet.create({
   },
   timeText: { fontSize: 13, fontWeight: '800', color: COLORS.textMain },
   seg: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 2 },
-  dot: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: '#C7C7CC',
-  },
-  track: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', height: 20,
-  },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#C7C7CC' },
+  track: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 20 },
   filled: { height: 4, borderRadius: 2 },
   trainIcon: {
     width: 22, height: 22, borderRadius: 11,
@@ -298,9 +304,7 @@ const card = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
   },
   empty: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2 },
-  names: {
-    flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6,
-  },
+  names: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   stName: { fontSize: 12, color: COLORS.textSub, fontWeight: '600', maxWidth: '46%' },
   status: { fontSize: 11, color: COLORS.textSub, textAlign: 'center' },
 });
