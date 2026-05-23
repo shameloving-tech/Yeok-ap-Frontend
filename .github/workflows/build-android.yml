@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Android APK (Gradle)
+    name: Android APK (Gradle Release)
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -33,11 +33,22 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build APK
+      - name: Patch release signing to use debug keystore
+        run: |
+          node -e "
+            const fs = require('fs');
+            const file = 'android/app/build.gradle';
+            let g = fs.readFileSync(file, 'utf8');
+            g = g.replace(/signingConfig signingConfigs\.release/g, 'signingConfig signingConfigs.debug');
+            fs.writeFileSync(file, g);
+            console.log('Patched signingConfig for release build');
+          "
+
+      - name: Build Release APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
         env:
           GRADLE_OPTS: -Xmx4g
 
@@ -49,5 +60,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Yeok-Ap_${{ steps.ver.outputs.v }}
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 90
