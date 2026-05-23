@@ -162,10 +162,12 @@ export function TrainLocationSheet({
             </TouchableOpacity>
           </View>
 
+          {/* 탭 행 — height 고정으로 버튼이 세로로 늘어나는 것 방지 */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.tabs}
+            style={s.tabScroll}
+            contentContainerStyle={s.tabContent}
           >
             {SUPPORTED_LINES.map(l => {
               const c = getLineColor(l);
@@ -251,21 +253,26 @@ const s = StyleSheet.create({
   },
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, marginBottom: 16, gap: 10,
+    paddingHorizontal: 20, marginBottom: 12, gap: 10,
   },
   lineAccent: { width: 4, height: 20, borderRadius: 2 },
   title: { fontSize: 18, fontWeight: '800', color: COLORS.textMain },
   sub: { flex: 1, fontSize: 11, color: COLORS.textSub },
   closeBtn: { padding: 4 },
-  tabs: { paddingHorizontal: 20, gap: 8, paddingBottom: 12 },
+  tabScroll: { height: 48, flexGrow: 0 },
+  tabContent: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },
   tab: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1.5, gap: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    gap: 5,
   },
   tabDot: { width: 8, height: 8, borderRadius: 4 },
   tabText: { fontSize: 12, fontWeight: '700' },
-  body: { flex: 1 },
+  body: { flex: 1, marginTop: 8 },
   bodyContent: { padding: 16, gap: 10, flexGrow: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 40 },
   hint: { fontSize: 14, color: COLORS.textSub, textAlign: 'center' },
