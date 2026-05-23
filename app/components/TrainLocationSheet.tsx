@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ThemedText } from './themed-text';
+import { ThemedText } from '@/components/themed-text';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
@@ -47,7 +47,6 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
 
   return (
     <View style={card.wrap}>
-      {/* 상단 좌주 안내 */}
       <View style={card.row}>
         <View style={[card.badge, { borderColor: color }]}>
           <Ionicons name="train-outline" size={11} color={color} />
@@ -63,11 +62,8 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
         </View>
       </View>
 
-      {/* 구간 다이어그램 */}
       <View style={card.seg}>
-        {/* 이전역 도트 */}
         <View style={card.dot} />
-        {/* 트랙 */}
         <View style={card.track}>
           <View style={[card.filled, { flex: Math.max(0.001, progress), backgroundColor: color }]} />
           <View style={[card.trainIcon, { backgroundColor: color }]}>
@@ -75,11 +71,9 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
           </View>
           <View style={[card.empty, { flex: Math.max(0.001, 1 - progress) }]} />
         </View>
-        {/* 다음역 도트 */}
         <View style={[card.dot, { backgroundColor: color }]} />
       </View>
 
-      {/* 역 이름 */}
       <View style={card.names}>
         <ThemedText style={card.stName} numberOfLines={1}>
           {train.prev_station ?? '?'}
@@ -89,7 +83,6 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
         </ThemedText>
       </View>
 
-      {/* 상태 메시지 */}
       <ThemedText style={card.status} numberOfLines={1}>{train.status_msg}</ThemedText>
     </View>
   );
@@ -103,12 +96,12 @@ export function TrainLocationSheet({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const [line,     setLine]     = useState('2호선');
-  const [trains,   setTrains]   = useState<Train[]>([]);
-  const [loading,  setLoading]  = useState(false);
-  const [secs,     setSecs]     = useState<Record<string, number>>({});
-  const fetchTimer   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countTimer   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [line,    setLine]    = useState('2호선');
+  const [trains,  setTrains]  = useState<Train[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [secs,    setSecs]    = useState<Record<string, number>>({});
+  const fetchTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadTrains = useCallback(async (l: string) => {
     setLoading(true);
@@ -127,7 +120,6 @@ export function TrainLocationSheet({
     }
   }, []);
 
-  // 호선 변경 또는 시트 오픈 시 포치
   useEffect(() => {
     if (!visible) return;
     setTrains([]);
@@ -136,7 +128,6 @@ export function TrainLocationSheet({
     return () => { if (fetchTimer.current) clearInterval(fetchTimer.current); };
   }, [visible, line, loadTrains]);
 
-  // 1초 카운트다운
   useEffect(() => {
     if (!visible) return;
     countTimer.current = setInterval(() => {
@@ -157,7 +148,6 @@ export function TrainLocationSheet({
       <View style={[s.sheet, { paddingBottom: insets.bottom + 16 }]}>
         <View style={s.handle} />
 
-        {/* 헤더 */}
         <View style={s.header}>
           <View style={[s.lineAccent, { backgroundColor: color }]} />
           <ThemedText style={s.title}>열차 위치</ThemedText>
@@ -167,7 +157,6 @@ export function TrainLocationSheet({
           </TouchableOpacity>
         </View>
 
-        {/* 호선 탭 */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -196,7 +185,6 @@ export function TrainLocationSheet({
           })}
         </ScrollView>
 
-        {/* 도착 정보 영역 */}
         <View style={s.body}>
           {loading ? (
             <View style={s.center}>
