@@ -22,8 +22,11 @@ const SHEET_HEIGHT = SCREEN_HEIGHT * 0.72;
 const SUPPORTED_LINES = [
   '2호선', '1호선', '3호선', '4호선', '5호선',
   '6호선', '7호선', '8호선', '9호선',
-  '수인분당선', '공항철도', '신분당선', '경의중앙선',
+  '수인분당선', '경의중앙선', '공항철도', '신분당선',
 ];
+
+// 서울 Open API 500건 제한으로 실시간 데이터가 간헐적으로 누락되는 노선
+const LIMITED_LINES = new Set(['공항철도', '신분당선']);
 
 const FETCH_MS    = 20_000;
 const TIMEOUT_MS  = 15_000;
@@ -161,6 +164,7 @@ export function TrainLocationSheet({
   }, [visible]);
 
   const color = getLineColor(line);
+  const isLimited = LIMITED_LINES.has(line);
 
   const handleRetry = () => {
     setTrains([]);
@@ -177,13 +181,14 @@ export function TrainLocationSheet({
           <View style={s.header}>
             <View style={[s.lineAccent, { backgroundColor: color }]} />
             <ThemedText style={s.title}>열차 위치</ThemedText>
-            <ThemedText style={s.sub}>20초 자동 갱신 · 연착 자동 반영</ThemedText>
+            <ThemedText style={s.sub}>
+              {isLimited ? '일부 노선 실시간 데이터 제한' : '20초 자동 갱신 · 연착 자동 반영'}
+            </ThemedText>
             <TouchableOpacity onPress={onClose} style={s.closeBtn}>
               <Ionicons name="close" size={22} color={COLORS.textSub} />
             </TouchableOpacity>
           </View>
 
-          {/* 탭 행 — height 고정으로 버튼이 세로로 늘어나는 것 방지 */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -193,6 +198,7 @@ export function TrainLocationSheet({
             {SUPPORTED_LINES.map(l => {
               const c = getLineColor(l);
               const active = l === line;
+              const limited = LIMITED_LINES.has(l);
               return (
                 <TouchableOpacity
                   key={l}
@@ -202,6 +208,7 @@ export function TrainLocationSheet({
                     active
                       ? { backgroundColor: c, borderColor: c }
                       : { borderColor: '#E5E5EA' },
+                    limited && !active && { opacity: 0.55 },
                   ]}
                 >
                   <View style={[s.tabDot, { backgroundColor: active ? 'white' : c }]} />
@@ -229,17 +236,19 @@ export function TrainLocationSheet({
             {loading && trains.length === 0 ? (
               <View style={s.center}>
                 <ActivityIndicator color={color} size="large" />
-                <ThemedText style={s.hint}>열차 정보를 가져오는 중입니다...</ThemedText>
-                <ThemedText style={[s.hint, { fontSize: 12 }]}>
-                  서버가 시작 중이라면 최대 30초 소요됩니다
-                </ThemedText>
+                <ThemedText style={s.hint}>열차 정보를 불러오는 중...</ThemedText>
+                {isLimited && (
+                  <ThemedText style={[s.hint, { fontSize: 12 }]}>
+                    이 노선은 데이터가 없을 수 있어요
+                  </ThemedText>
+                )}
               </View>
             ) : error ? (
               <View style={s.center}>
                 <Ionicons name="cloud-offline-outline" size={44} color="#C7C7CC" />
-                <ThemedText style={s.hint}>서버 연결 실패</ThemedText>
+                <ThemedText style={s.hint}>연결에 실패했어요</ThemedText>
                 <ThemedText style={[s.hint, { fontSize: 12 }]}>
-                  서버 시작 중이거나 네트워크 문제일 수 있습니다
+                  서버가 깨어나는 중이거나 네트워크를 확인해 주세요
                 </ThemedText>
                 <TouchableOpacity onPress={handleRetry} style={[s.retryBtn, { backgroundColor: color }]}>
                   <ThemedText style={s.retryText}>다시 시도</ThemedText>
@@ -248,8 +257,12 @@ export function TrainLocationSheet({
             ) : trains.length === 0 ? (
               <View style={s.center}>
                 <Ionicons name="train-outline" size={44} color="#C7C7CC" />
-                <ThemedText style={s.hint}>현재 {line} 운행 열차 정보 없음</ThemedText>
-                <ThemedText style={[s.hint, { fontSize: 12 }]}>시운 외 시간대이거나 API 응답 없음</ThemedText>
+                <ThemedText style={s.hint}>지금은 운행 정보가 없어요</ThemedText>
+                <ThemedText style={[s.hint, { fontSize: 12 }]}>
+                  {isLimited
+                    ? '이 노선은 실시간 데이터가 지원되지 않을 수 있어요'
+                    : '운행이 종료됐거나 잠시 후 다시 확인해 보세요'}
+                </ThemedText>
                 <TouchableOpacity onPress={handleRetry} style={[s.retryBtn, { backgroundColor: color }]}>
                   <ThemedText style={s.retryText}>새로고침</ThemedText>
                 </TouchableOpacity>
