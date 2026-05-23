@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Modal,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,9 @@ import { ThemedText } from '@/components/themed-text';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SHEET_HEIGHT = SCREEN_HEIGHT * 0.72;
 
 const SUPPORTED_LINES = [
   '2호선', '1호선', '3호선', '4호선', '5호선',
@@ -144,7 +148,6 @@ export function TrainLocationSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      {/* 전체를 flex:1로 감싸고 backdrop을 절대위치로 → 시트가 올바른 높이를 가짐 */}
       <View style={s.root}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
         <View style={[s.sheet, { paddingBottom: insets.bottom + 16 }]}>
@@ -187,8 +190,11 @@ export function TrainLocationSheet({
             })}
           </ScrollView>
 
-          {/* body: flex:1로 남은 공간 채움 */}
-          <View style={s.body}>
+          <ScrollView
+            style={s.body}
+            contentContainerStyle={s.bodyContent}
+            showsVerticalScrollIndicator={false}
+          >
             {loading ? (
               <View style={s.center}>
                 <ActivityIndicator color={color} size="large" />
@@ -201,10 +207,7 @@ export function TrainLocationSheet({
                 <ThemedText style={[s.hint, { fontSize: 12 }]}>시운 외 시간대이거나 API 응답 없음</ThemedText>
               </View>
             ) : (
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ padding: 16, gap: 10 }}
-              >
+              <>
                 {trains.map(t => (
                   <TrainCard
                     key={t.train_no}
@@ -219,9 +222,9 @@ export function TrainLocationSheet({
                     열차 위치는 도착 예상 시간 기반 보간값입니다
                   </ThemedText>
                 </View>
-              </ScrollView>
+              </>
             )}
-          </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -235,10 +238,10 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.38)',
   },
   sheet: {
+    height: SHEET_HEIGHT,
     backgroundColor: 'white',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: '82%',
     paddingTop: 12,
   },
   handle: {
@@ -263,7 +266,8 @@ const s = StyleSheet.create({
   tabDot: { width: 8, height: 8, borderRadius: 4 },
   tabText: { fontSize: 12, fontWeight: '700' },
   body: { flex: 1 },
-  center: { flex: 1, paddingVertical: 40, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  bodyContent: { padding: 16, gap: 10, flexGrow: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 40 },
   hint: { fontSize: 14, color: COLORS.textSub, textAlign: 'center' },
   footer: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
