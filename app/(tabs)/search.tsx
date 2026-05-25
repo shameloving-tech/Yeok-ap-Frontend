@@ -18,6 +18,7 @@ import { StationDetailModal } from '@/components/StationDetailModal';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor, getLineNumber } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
+import { useSubwayData } from '@/hooks/useSubwayData';
 
 type Station = { id: number; station_name: string; line: string };
 type RouteStep = { type: string; station: string; line: string; prev_line?: string };
@@ -30,6 +31,21 @@ type RouteResult = {
 
 function lineLabel(line: string) {
   return line?.match(/(\d+)/)?.[1] || line?.slice(0, 2) || 'M';
+}
+
+const CONGESTION_COLOR: Record<string, string> = {
+  '혼잡': '#FF9500',
+  '폭발': '#FF3B30',
+};
+
+function getCongestion(stationList: any[], stationName: string, lineName: string): string | null {
+  const nameA = stationName.endsWith('역') ? stationName : `${stationName}역`;
+  const nameB = stationName.endsWith('역') ? stationName.slice(0, -1) : stationName;
+  const found = stationList.find(
+    s => (s.station_name === nameA || s.station_name === nameB) && s.line_name === lineName
+  );
+  const level = found?.congestion_level;
+  return level && CONGESTION_COLOR[level] ? level : null;
 }
 
 export default function RouteScreen() {
@@ -47,6 +63,7 @@ export default function RouteScreen() {
   const [routeError, setRouteError] = useState('');
   const fromRef = useRef<TextInput>(null);
   const toRef = useRef<TextInput>(null);
+  const { stationList } = useSubwayData();
 
   const fetchSuggestions = useCallback(async (q: string) => {
     if (!q.trim()) { setSuggestions([]); return; }
@@ -286,15 +303,41 @@ export default function RouteScreen() {
               )}
             </View>
 
+            {/* 혼잡도 경보 배너 */}
+            {(() => {
+              const warnings = routeResult.steps
+                .filter(s => s.type === 'board' || s.type === 'transfer')
+                .map(s => ({ station: s.station, line: s.line, level: getCongestion(stationList, s.station, s.line) }))
+                .filter(w => w.level !== null);
+              if (warnings.length === 0) return null;
+              return (
+                <View style={styles.congestionBanner}>
+                  <Ionicons name="warning" size={15} color="#FF9500" />
+                  <ThemedText style={styles.congestionBannerText}>
+                    {warnings.map(w => `${w.station}(${w.line}) ${w.level}`).join(' · ')} 주의
+                  </ThemedText>
+                </View>
+              );
+            })()}
+
             {/* Steps */}
             <View style={styles.stepsContainer}>
               {routeResult.steps.map((step, idx) => {
+                const congestion = (step.type === 'board' || step.type === 'transfer')
+                  ? getCongestion(stationList, step.station, step.line) : null;
                 if (step.type === 'board') {
                   return (
                     <View key={idx} style={styles.step}>
                       <View style={[styles.stepDot, { backgroundColor: getLineColor(step.line) }]} />
                       <View style={styles.stepContent}>
-                        <ThemedText style={styles.stepStation}>{step.station}</ThemedText>
+                        <View style={styles.stationRow}>
+                          <ThemedText style={styles.stepStation}>{step.station}</ThemedText>
+                          {congestion && (
+                            <View style={[styles.congestionBadge, { backgroundColor: CONGESTION_COLOR[congestion] + '22' }]}>
+                              <ThemedText style={[styles.congestionBadgeText, { color: CONGESTION_COLOR[congestion] }]}>{congestion}</ThemedText>
+                            </View>
+                          )}
+                        </View>
                         <View style={[styles.linePill, { backgroundColor: getLineColor(step.line) + '22' }]}>
                           <ThemedText style={[styles.linePillText, { color: getLineColor(step.line) }]}>{step.line} 탑승</ThemedText>
                         </View>
@@ -308,7 +351,14 @@ export default function RouteScreen() {
                       <View style={styles.stepLineTransfer} />
                       <View style={[styles.stepDot, { backgroundColor: getLineColor(step.line), borderWidth: 2, borderColor: 'white' }]} />
                       <View style={styles.stepContent}>
-                        <ThemedText style={styles.stepStation}>{step.station}</ThemedText>
+                        <View style={styles.stationRow}>
+                          <ThemedText style={styles.stepStation}>{step.station}</ThemedText>
+                          {congestion && (
+                            <View style={[styles.congestionBadge, { backgroundColor: CONGESTION_COLOR[congestion] + '22' }]}>
+                              <ThemedText style={[styles.congestionBadgeText, { color: CONGESTION_COLOR[congestion] }]}>{congestion}</ThemedText>
+                            </View>
+                          )}
+                        </View>
                         <View style={styles.transferRow}>
                           <Ionicons name="swap-horizontal" size={12} color={COLORS.textSub} />
                           <ThemedText style={styles.transferText}>{step.line} 환승</ThemedText>
@@ -434,4 +484,14 @@ const styles = StyleSheet.create({
   transferText: { fontSize: 12, color: COLORS.textSub, fontWeight: '600' },
   expressPill: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 },
   expressPillText: { fontSize: 11, color: '#FF9500', fontWeight: '700' },
+
+  congestionBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#FFF3E0', paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: '#FFE0B2',
+  },
+  congestionBannerText: { fontSize: 12, color: '#E65100', fontWeight: '600', flex: 1 },
+  stationRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  congestionBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  congestionBadgeText: { fontSize: 11, fontWeight: '800' },
 });
