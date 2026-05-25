@@ -39,10 +39,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="route"
-        options={{
-          title: '길찾기',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="navigate" color={color} />,
-        }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="search"
