@@ -2,6 +2,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
+import { router } from 'expo-router';
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -189,7 +190,10 @@ export default function HomeScreen() {
   ];
 
   const handleNearbyStationPress = async () => {
-    if (nearestStation) await saveRecentStation(nearestStation);
+    if (nearestStation) {
+      await saveRecentStation(nearestStation);
+      router.push('/(tabs)/search');
+    }
   };
 
   return (
@@ -220,7 +224,7 @@ export default function HomeScreen() {
       >
         {/* Search Bar */}
         <View style={styles.searchSection}>
-          <TouchableOpacity style={styles.searchBar}>
+          <TouchableOpacity style={styles.searchBar} onPress={() => router.push('/(tabs)/search')}>
             <Ionicons name="search" size={20} color={COLORS.primary} style={styles.searchIcon} />
             <ThemedText style={styles.searchText}>어느 역으로 갈까요?</ThemedText>
           </TouchableOpacity>

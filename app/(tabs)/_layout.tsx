@@ -40,13 +40,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: '검색',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="search" color={color} />,
-        }}
-        listeners={{
-          tabPress: (e) => {
-            // Prevent default action and maybe show a coming soon or just navigate
-          },
+          title: '길찾기',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="navigate" color={color} />,
         }}
       />
       <Tabs.Screen
