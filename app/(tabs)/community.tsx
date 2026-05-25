@@ -31,7 +31,7 @@ const { width } = Dimensions.get('window');
 const SUBWAY_LINES = [
   '전체', '1호선', '2호선', '3호선', '4호선', '5호선', '6호선', '7호선', '8호선', '9호선',
   '수인분당선', '경의중앙선', '공항철도', '신분당선', '경춘선', '우이신설선', '신림선',
-  '김포골드라인', '경강선', '서해선', '인천1호선', '인천2호선', 'GTX-A',
+  '김포골드라인', '경강선', '서해선', '인체1호선', '인체2호선', 'GTX-A',
 ];
 
 const LIKED_REPORTS_KEY = 'liked_reports';
@@ -91,13 +91,11 @@ export default function CommunityScreen() {
   };
 
   const loadReports = async () => {
-    // 1) 캐시 즉시 표시
     const cached = await AsyncStorage.getItem(REPORTS_CACHE_KEY(selectedLine));
     if (cached) {
       setReports(JSON.parse(cached));
       setLoading(false);
     }
-    // 2) 백그라운드에서 최신 데이터 fetch
     await fetchReports();
   };
 
@@ -118,18 +116,15 @@ export default function CommunityScreen() {
     }
   };
 
-  // ─── 좋아요 ──────────────────────────────────────────────
+  // ─── 좋아요 ──────────────────────────────────────────────────
   const handleLike = async (reportId: number) => {
     const isLiked = likedReports.has(reportId);
-
-    // 즉시 UI 반영 (낙관적 업데이트)
     const updatedSet = new Set(likedReports);
     isLiked ? updatedSet.delete(reportId) : updatedSet.add(reportId);
     setLikedReports(updatedSet);
     setReports(prev => prev.map(r =>
       r.id === reportId ? { ...r, likes_count: (r.likes_count || 0) + (isLiked ? -1 : 1) } : r
     ));
-
     try {
       const res = await fetch(`${BASE_URL}/reports/${reportId}/like`, {
         method: isLiked ? 'DELETE' : 'POST',
@@ -137,12 +132,10 @@ export default function CommunityScreen() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       await AsyncStorage.setItem(LIKED_REPORTS_KEY, JSON.stringify([...updatedSet]));
-      // 서버 실제 값으로 동기화
       setReports(prev => prev.map(r =>
         r.id === reportId ? { ...r, likes_count: data.likes_count } : r
       ));
     } catch {
-      // 실패 시 롤백
       setLikedReports(likedReports);
       setReports(prev => prev.map(r =>
         r.id === reportId ? { ...r, likes_count: (r.likes_count || 0) + (isLiked ? 1 : -1) } : r
@@ -150,7 +143,7 @@ export default function CommunityScreen() {
     }
   };
 
-  // ─── 댓글 ────────────────────────────────────────────────
+  // ─── 댓글 ────────────────────────────────────────────────────
   const openComments = async (reportId: number) => {
     setCommentsReportId(reportId);
     setCommentsLoading(true);
@@ -198,7 +191,7 @@ export default function CommunityScreen() {
     }
   };
 
-  // ─── 제보 작성 ───────────────────────────────────────────
+  // ─── 제보 작성 ───────────────────────────────────────────────
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -249,7 +242,7 @@ export default function CommunityScreen() {
     }
   };
 
-  // ─── 렌더 헬퍼 ───────────────────────────────────────────
+  // ─── 렌더 헬퍼 ───────────────────────────────────────────────
   const renderFeedCard = ({ item }: { item: any }) => {
     const isLiked = likedReports.has(item.id);
     return (
@@ -295,7 +288,9 @@ export default function CommunityScreen() {
     <View style={styles.sectionContainer}>
       <View style={styles.sectionHeader}>
         <ThemedText style={styles.sectionTitle}>실시간 인기 글</ThemedText>
-        <TouchableOpacity><ThemedText style={styles.viewAll}>전체보기</ThemedText></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/best-posts')}>
+          <ThemedText style={styles.viewAll}>전체보기</ThemedText>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.filterWrapper}>
@@ -410,7 +405,6 @@ export default function CommunityScreen() {
       {isPostModalOpen && (
         <View style={styles.modalOverlay}>
           <SafeAreaView style={{ flex: 1 }}>
-            {/* 헤더 */}
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setIsPostModalOpen(false)} style={styles.modalHeaderBtn}>
                 <Ionicons name="close" size={24} color={COLORS.textMain} />
@@ -420,11 +414,8 @@ export default function CommunityScreen() {
             </View>
 
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-
-              {/* 현재 역 */}
               <ThemedText style={styles.formSectionLabel}>현재 역</ThemedText>
               <View style={styles.stationCard}>
-                {/* 호선 선택 */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.lineScrollRow}>
                   <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 2 }}>
                     {SUBWAY_LINES.filter(l => l !== '전체').map(line => (
@@ -465,13 +456,11 @@ export default function CommunityScreen() {
                 </View>
               </View>
 
-              {/* 경고 */}
               <View style={styles.noticeBanner}>
                 <Ionicons name="information-circle-outline" size={18} color={COLORS.textSub} style={{ marginRight: 8, flexShrink: 0 }} />
-                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쾌감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
+                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쿈감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
               </View>
 
-              {/* 제보 내용 */}
               <ThemedText style={styles.formSectionLabel}>제보 내용</ThemedText>
               <ThemedText style={styles.formSectionSub}>현재 역 주변의 불편사항이나 실시간 정보를 공유해 주세요.</ThemedText>
 
@@ -484,7 +473,7 @@ export default function CommunityScreen() {
               />
               <TextInput
                 style={styles.contentInput}
-                placeholder={"제보 내용을 입력해 주세요.\n(예: 3번 출구 에스컬레이터 고장, 열차 지연 등)"}
+                placeholder={"제보 내용을 입력해 주세요.\n(예: 3번 출구 에스컈레이터 고장, 열차 지연 등)"}
                 placeholderTextColor={COLORS.textSub}
                 multiline
                 textAlignVertical="top"
@@ -492,7 +481,6 @@ export default function CommunityScreen() {
                 onChangeText={setContent}
               />
 
-              {/* 사진 1장 */}
               <View style={styles.photoRow}>
                 <TouchableOpacity style={styles.photoAddBtn} onPress={pickImage}>
                   <Ionicons name="image-outline" size={26} color={COLORS.textSub} />
@@ -508,7 +496,6 @@ export default function CommunityScreen() {
                 )}
               </View>
 
-              {/* 제보하기 버튼 */}
               <TouchableOpacity
                 style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
                 onPress={submitReport}
@@ -614,19 +601,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
   loadingContainer: { padding: 20, alignItems: 'center' },
 
-  // 헤더
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'white' },
   headerAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: COLORS.primary },
   headerSearch: { padding: 4 },
 
-  // 섹션
   sectionContainer: { marginTop: 10 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 15 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textMain },
-  viewAll: { fontSize: 14, color: COLORS.textSub, fontWeight: '600' },
+  viewAll: { fontSize: 14, color: COLORS.primary, fontWeight: '700' },
 
-  // 필터
   filterWrapper: { marginBottom: 15 },
   filterScroll: { paddingHorizontal: 20, alignItems: 'center', gap: 10 },
   filterChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: COLORS.border },
@@ -636,7 +620,6 @@ const styles = StyleSheet.create({
   filterSeparator: { width: 1, height: 16, backgroundColor: '#E5E5EA', marginHorizontal: 5 },
   chipDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
 
-  // 인기글 카드
   popularScroll: { paddingHorizontal: 20, gap: 12, paddingBottom: 10 },
   popularCard: { width: width * 0.72, backgroundColor: 'white', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
@@ -649,7 +632,6 @@ const styles = StyleSheet.create({
   popularCardBody: { fontSize: 13, color: COLORS.textSub, lineHeight: 18, marginBottom: 15 },
   cardStats: { flexDirection: 'row', gap: 12, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 12 },
 
-  // 피드
   newPostsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 20, marginBottom: 15 },
   sortOptions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sortActive: { fontSize: 13, color: COLORS.textMain, fontWeight: '800' },
@@ -671,10 +653,8 @@ const styles = StyleSheet.create({
   statText: { fontSize: 13, color: COLORS.textSub, fontWeight: '600' },
   statTextActive: { color: COLORS.primary },
 
-  // FAB
   fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 20, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', elevation: 8 },
 
-  // 제보 작성 모달
   modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#F8F9FB', zIndex: 1000 },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -742,7 +722,6 @@ const styles = StyleSheet.create({
   },
   submitBtnText: { fontSize: 17, fontWeight: '800', color: 'white' },
 
-  // 댓글 바텀시트
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   commentsSheet: {
     backgroundColor: 'white',

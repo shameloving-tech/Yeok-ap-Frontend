@@ -1,14 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { APP_COLORS } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -18,8 +17,9 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          height: 85,
+          height: 60 + insets.bottom,
           paddingTop: 10,
+          paddingBottom: insets.bottom,
           borderTopWidth: 1,
           borderTopColor: '#F2F2F7',
           backgroundColor: 'white',
@@ -27,7 +27,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
-          marginBottom: 10,
+          marginBottom: 6,
         }
       }}>
       <Tabs.Screen
@@ -35,6 +35,13 @@ export default function TabLayout() {
         options={{
           title: '홈',
           tabBarIcon: ({ color }) => <Ionicons size={24} name="home" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="route"
+        options={{
+          title: '길찾기',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="navigate" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -61,4 +68,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-

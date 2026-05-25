@@ -14,8 +14,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { StationDetailModal } from '@/components/StationDetailModal';
 import { APP_COLORS as COLORS } from '@/constants/theme';
-import { getLineColor } from '@/constants/lines';
+import { getLineColor, getLineNumber } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
 
 type Station = { id: number; station_name: string; line: string };
@@ -115,6 +116,12 @@ export default function RouteScreen() {
   };
 
   const showSuggestions = activeField !== null && suggestions.length > 0;
+
+  const handleSelect = async (item: any) => {
+    const payload = { station_name: item.station_name, line_name: item.line };
+    await saveRecentStation(payload);
+    setDetailStation(payload);
+  };
 
   return (
     <KeyboardAvoidingView

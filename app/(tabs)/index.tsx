@@ -16,13 +16,15 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { StationDetailModal } from '@/components/StationDetailModal';
+import { TrainLocationSheet } from '@/app/components/TrainLocationSheet';
 import { APP_COLORS as COLORS } from '@/constants/theme';
-import { LINE_CONFIG, getLineColor } from '@/constants/lines';
+import { LINE_CONFIG, getLineColor, getLineNumber } from '@/constants/lines';
 import { useSubwayData } from '@/hooks/useSubwayData';
+import { FavoriteStation, getFavoriteStations } from '@/utils/favorites';
 
 const { width } = Dimensions.get('window');
 
-// ActionCable은 브라우저 이벤트 API를 가정하므로 RN에서 패치 필요
 if (typeof global.addEventListener !== 'function') {
   (global as any).addEventListener = () => {};
 }
@@ -31,6 +33,7 @@ if (typeof global.removeEventListener !== 'function') {
 }
 
 const RECENT_STATIONS_KEY = 'recent_stations';
+const MAX_NEARBY_KM = 5;
 
 export const saveRecentStation = async (station: any) => {
   try {
@@ -49,7 +52,11 @@ export default function HomeScreen() {
   const [showOnlyFollowed, setShowOnlyFollowed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+  const [locationLoaded, setLocationLoaded] = useState(false);
   const [recentStations, setRecentStations] = useState<any[]>([]);
+  const [favoriteStations, setFavoriteStations] = useState<FavoriteStation[]>([]);
+  const [detailStation, setDetailStation] = useState<any>(null);
+  const [trainSheetOpen, setTrainSheetOpen] = useState(false);
 
   useEffect(() => {
     loadPreferences();
@@ -57,18 +64,23 @@ export default function HomeScreen() {
   }, []);
 
   const loadPreferences = async () => {
-    const [savedLines, savedRecent] = await Promise.all([
+    const [savedLines, savedRecent, savedFavs] = await Promise.all([
       AsyncStorage.getItem('followed_lines'),
       AsyncStorage.getItem(RECENT_STATIONS_KEY),
+      getFavoriteStations(),
     ]);
     if (savedLines) setFollowedLines(JSON.parse(savedLines));
     if (savedRecent) setRecentStations(JSON.parse(savedRecent));
+    setFavoriteStations(savedFavs);
   };
 
   const requestLocationPermission = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        setLocationLoaded(true);
+        return;
+      }
 
       const lastLocation = await Location.getLastKnownPositionAsync({});
       if (lastLocation) setUserLocation(lastLocation);
@@ -80,14 +92,12 @@ export default function HomeScreen() {
         ]) as Location.LocationObject;
         setUserLocation(location);
       } catch {
-        if (!userLocation) {
-          setUserLocation({
-            coords: { latitude: 37.4979, longitude: 127.0276 },
-            timestamp: Date.now(),
-          } as any);
-        }
+        // GPS timeout — keep last known position (may be null if first run)
       }
     } catch {}
+    finally {
+      setLocationLoaded(true);
+    }
   };
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -117,15 +127,29 @@ export default function HomeScreen() {
         nearest = { ...station, distance };
       }
     });
+    if (minDistance > MAX_NEARBY_KM) return null;
     return nearest;
   }, [userLocation, stationList]);
+
+  // 즐겨찾기 역을 stationList와 머지해서 실시간 혼잡도 부여
+  const favoriteStationsWithStatus = useMemo(() => {
+    return favoriteStations.map(fav => {
+      const live = stationList.find(s => s.station_name === fav.station_name && s.line_name === fav.line_name);
+      return {
+        station_name: fav.station_name,
+        line_name: fav.line_name,
+        congestion_level: live?.congestion_level ?? null,
+        arrival_message: live?.arrival_message ?? null,
+      };
+    });
+  }, [favoriteStations, stationList]);
 
   const processedLines = useMemo(() => {
     const levelOrder: Record<string, number> = { '폭발': 4, '혼잡': 3, '보통': 2, '여유': 1 };
     return LINE_CONFIG.map(line => {
       const lineStations = stationList.filter(s => s.line_name === line.name);
       if (lineStations.length === 0) {
-        return { ...line, status: '보통', msg: '운행 정보 확인 중', transfers: [], detailedTransfers: [] };
+        return { ...line, status: '정보없음', msg: '혼잡도 정보 없음', transfers: [], detailedTransfers: [] };
       }
       const worstStation = lineStations.reduce((prev, curr) =>
         (levelOrder[curr.congestion_level] || 0) > (levelOrder[prev.congestion_level] || 0) ? curr : prev
@@ -136,19 +160,19 @@ export default function HomeScreen() {
           stationName: s.station_name,
           lines: s.transfer_info.split(',').map((tName: string) => {
             const targetLineData = stationList.find(st => st.line_name === tName.trim());
-            return { name: tName.trim(), status: targetLineData?.congestion_level || '보통' };
+            return { name: tName.trim(), status: targetLineData?.congestion_level ?? '정보없음' };
           })
         })).slice(0, 3);
       const transfers = Array.from(new Set(lineStations.flatMap(s =>
         s.transfer_info ? s.transfer_info.split(',') : []
       ))).filter((t: any) => t.trim() !== line.name).slice(0, 5);
-      let msg = '원활하게 운행 중입니다';
+      let msg = worstStation.congestion_level ? '원활하게 운행 중입니다' : '혼잡도 정보 없음';
       if (worstStation.congestion_level === '폭발' || worstStation.congestion_level === '혼잡') {
         msg = `${worstStation.station_name.replace('역', '')} 매우 혼잡`;
       } else if (worstStation.arrival_message) {
         msg = worstStation.arrival_message;
       }
-      return { ...line, status: worstStation.congestion_level || '여유', msg, transfers, detailedTransfers };
+      return { ...line, status: worstStation.congestion_level ?? '정보없음', msg, transfers, detailedTransfers };
     });
   }, [stationList]);
 
@@ -174,7 +198,8 @@ export default function HomeScreen() {
       case '폭발': return '#FF3B30';
       case '혼잡': return '#FF9500';
       case '보통': return '#FFCC00';
-      default: return '#34C759';
+      case '여유': return '#34C759';
+      default: return '#8E8E93';
     }
   };
 
@@ -222,7 +247,6 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
       >
-        {/* Search Bar */}
         <View style={styles.searchSection}>
           <TouchableOpacity style={styles.searchBar} onPress={() => router.push('/(tabs)/search')}>
             <Ionicons name="search" size={20} color={COLORS.primary} style={styles.searchIcon} />
@@ -230,7 +254,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Notice Banner */}
         <View style={styles.noticeSection}>
           <LinearGradient
             colors={[COLORS.secondary, '#4A7C63']}
@@ -255,7 +278,41 @@ export default function HomeScreen() {
           </LinearGradient>
         </View>
 
-        {/* 노선 혼잡도 */}
+        {/* 즐겨찾기 역 */}
+        {favoriteStationsWithStatus.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText style={styles.sectionTitle}>즐겨찾기 역</ThemedText>
+              <ThemedText style={styles.sectionSub}>{favoriteStationsWithStatus.length}개</ThemedText>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentList}>
+              {favoriteStationsWithStatus.map((fav, idx) => (
+                <TouchableOpacity
+                  key={`${fav.station_name}-${fav.line_name}-${idx}`}
+                  style={styles.recentCard}
+                  onPress={() => openStationDetail(fav)}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={[styles.lineBadge, { backgroundColor: getLineColor(fav.line_name) }]}>
+                      <ThemedText style={styles.lineBadgeText}>{getLineNumber(fav.line_name)}</ThemedText>
+                    </View>
+                    <Ionicons name="heart" size={18} color="#FF3B30" />
+                  </View>
+                  <View style={styles.cardBody}>
+                    <ThemedText style={styles.stationName}>{fav.station_name}</ThemedText>
+                    <ThemedText style={styles.stationNameSub}>{fav.line_name}</ThemedText>
+                  </View>
+                  <View style={[styles.miniBadge, { backgroundColor: getStatusColor(fav.congestion_level ?? '') + '22' }]}>
+                    <ThemedText style={[styles.miniBadgeText, { color: getStatusColor(fav.congestion_level ?? '') }]}>
+                      {fav.congestion_level ?? '정보없음'}
+                    </ThemedText>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <ThemedText style={styles.sectionTitle}>실시간 혼잡도</ThemedText>
@@ -264,7 +321,6 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* 전체 / 즐겨찾기 토글 */}
           <View style={styles.filterToggle}>
             <TouchableOpacity
               style={[styles.toggleBtn, !showOnlyFollowed && styles.toggleBtnActive]}
@@ -366,32 +422,27 @@ export default function HomeScreen() {
               contentContainerStyle={styles.recentList}
             >
               {recentStations.slice(0, 10).map((station, idx) => (
-                <View key={`${station.station_name}-${idx}`} style={styles.recentCard}>
+                <TouchableOpacity
+                  key={`${station.station_name}-${idx}`}
+                  style={styles.recentCard}
+                  onPress={() => openStationDetail(station)}
+                >
                   <View style={styles.cardHeader}>
                     <View style={[styles.lineBadge, { backgroundColor: getLineColor(station.line_name) }]}>
-                      <ThemedText style={styles.lineBadgeText}>
-                        {station.line_name?.match(/(\d+)/)?.[1] || 'M'}
-                      </ThemedText>
+                      <ThemedText style={styles.lineBadgeText}>{getLineNumber(station.line_name)}</ThemedText>
                     </View>
-                    <TouchableOpacity onPress={() => toggleFollow(station.line_name)}>
-                      <Ionicons
-                        name={followedLines.includes(station.line_name) ? 'heart' : 'heart-outline'}
-                        size={20}
-                        color={followedLines.includes(station.line_name) ? '#FF3B30' : '#C7C7CC'}
-                      />
-                    </TouchableOpacity>
+                    <Ionicons name="chevron-forward" size={18} color={COLORS.textSub} />
                   </View>
                   <View style={styles.cardBody}>
                     <ThemedText style={styles.stationName}>{station.station_name}</ThemedText>
                     <ThemedText style={styles.stationNameSub}>{station.line_name}</ThemedText>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           )}
         </View>
 
-        {/* Facility Search */}
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>주변 시설 찾기</ThemedText>
           <View style={styles.facilityGrid}>
@@ -410,7 +461,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Nearby Station Card */}
         <View style={styles.section}>
           <View style={styles.nearbyCard}>
             <View style={styles.nearbyHeader}>
@@ -425,9 +475,14 @@ export default function HomeScreen() {
                     {nearestStation.line_name} · 도보 {(nearestStation.distance * 15).toFixed(0)}분
                   </ThemedText>
                 </View>
-                <TouchableOpacity style={styles.routeBtn} onPress={handleNearbyStationPress}>
-                  <ThemedText style={styles.routeBtnText}>길찾기</ThemedText>
+                <TouchableOpacity style={styles.routeBtn} onPress={() => openStationDetail(nearestStation)}>
+                  <ThemedText style={styles.routeBtnText}>상세</ThemedText>
                 </TouchableOpacity>
+              </View>
+            ) : locationLoaded ? (
+              <View style={styles.nearbyEmpty}>
+                <Ionicons name="location-outline" size={28} color={COLORS.textSub} />
+                <ThemedText style={styles.nearbyEmptyText}>주변 5km 이내에 지하철역이 없습니다</ThemedText>
               </View>
             ) : (
               <View style={styles.nearbyLoading}>
@@ -439,10 +494,18 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      {/* FAB */}
-      <TouchableOpacity style={styles.fab}>
-        <Ionicons name="map" size={24} color="white" />
+      <TouchableOpacity style={styles.fab} onPress={() => setTrainSheetOpen(true)}>
+        <Ionicons name="train" size={24} color="white" />
       </TouchableOpacity>
+
+      <TrainLocationSheet visible={trainSheetOpen} onClose={() => setTrainSheetOpen(false)} />
+
+      <StationDetailModal
+        visible={!!detailStation}
+        station={detailStation}
+        onClose={() => setDetailStation(null)}
+        onFavoritesChanged={setFavoriteStations}
+      />
     </View>
   );
 }
@@ -502,6 +565,7 @@ const styles = StyleSheet.create({
   section: { marginTop: 30, paddingHorizontal: 20 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   sectionTitle: { fontSize: 22, fontWeight: '800', color: COLORS.textMain },
+  sectionSub: { fontSize: 13, color: COLORS.textSub, fontWeight: '600' },
   seeAllText: { fontSize: 14, color: COLORS.secondary, fontWeight: '600' },
   emptyRecent: { alignItems: 'center', paddingVertical: 24, gap: 8 },
   emptyRecentText: { fontSize: 14, color: COLORS.textSub },
@@ -523,6 +587,8 @@ const styles = StyleSheet.create({
   cardBody: { marginTop: 8 },
   stationName: { fontSize: 18, fontWeight: '800', color: COLORS.textMain },
   stationNameSub: { fontSize: 12, color: COLORS.textSub, marginTop: 2 },
+  miniBadge: { alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  miniBadgeText: { fontSize: 11, fontWeight: '800' },
   facilityGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 16 },
   facilityItem: { width: (width - 40) / 4, alignItems: 'center', marginBottom: 20 },
   facilityIconContainer: {
@@ -553,10 +619,10 @@ const styles = StyleSheet.create({
   nearbyStationInfo: { fontSize: 14, color: COLORS.textSub, marginTop: 4 },
   routeBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
   routeBtnText: { color: 'white', fontSize: 14, fontWeight: '700' },
-  nearbyLoading: { padding: 10, alignItems: 'center' },
-  loadingText: { marginTop: 8, fontSize: 12, color: COLORS.textSub },
-
-  // 노선 혼잡도
+  nearbyLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  nearbyEmpty: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  nearbyEmptyText: { fontSize: 14, color: COLORS.textSub },
+  loadingText: { fontSize: 12, color: COLORS.textSub },
   filterToggle: {
     flexDirection: 'row',
     backgroundColor: COLORS.border,
