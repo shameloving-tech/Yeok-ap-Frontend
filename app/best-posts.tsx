@@ -43,7 +43,10 @@ export default function BestPostsScreen() {
   const [loading, setLoading] = useState(true);
   const [likedReports, setLikedReports] = useState<Set<number>>(new Set());
 
-  useEffect(() => { fetchReports(); loadLiked(); }, []);
+  useEffect(() => {
+    fetchReports();
+    loadLiked();
+  }, []);
 
   const loadLiked = async () => {
     const raw = await AsyncStorage.getItem(LIKED_REPORTS_KEY);
@@ -74,13 +77,17 @@ export default function BestPostsScreen() {
       r.id === reportId ? { ...r, likes_count: (r.likes_count || 0) + (isLiked ? -1 : 1) } : r
     ));
     try {
-      const res = await fetch(`${BASE_URL}/reports/${reportId}/like`, { method: isLiked ? 'DELETE' : 'POST' });
+      const res = await fetch(`${BASE_URL}/reports/${reportId}/like`, {
+        method: isLiked ? 'DELETE' : 'POST',
+      });
       if (res.ok) {
         const data = await res.json();
         await AsyncStorage.setItem(LIKED_REPORTS_KEY, JSON.stringify([...next]));
         setReports(prev => prev.map(r => r.id === reportId ? { ...r, likes_count: data.likes_count } : r));
       }
-    } catch { setLikedReports(likedReports); }
+    } catch {
+      setLikedReports(likedReports);
+    }
   };
 
   const renderItem = ({ item, index }: { item: any; index: number }) => {
@@ -92,14 +99,26 @@ export default function BestPostsScreen() {
     const body  = lines.slice(1).join(' ') || title;
 
     return (
-      <TouchableOpacity activeOpacity={0.82} onPress={() => router.push(`/report/${item.id}`)} style={[styles.card, isTop && styles.cardTop]}>
+      <TouchableOpacity
+        activeOpacity={0.82}
+        onPress={() => router.push(`/report/${item.id}`)}
+        style={[styles.card, isTop && styles.cardTop]}
+      >
+        {/* 좌측 강조바 (#1의 경우) */}
         {isTop && <View style={styles.topBar} />}
+
+        {/* 순위 */}
         <View style={styles.rankCol}>
           <ThemedText style={[styles.rankNum, isTop && styles.rankNumTop]}>{rank}</ThemedText>
-          <ThemedText style={[styles.rankChange, isTop && { color: '#FFB800' }]}>{isTop ? '△' : '−'}</ThemedText>
+          <ThemedText style={[styles.rankChange, isTop && { color: '#FFB800' }]}>
+            {isTop ? '△' : '−'}
+          </ThemedText>
         </View>
+
+        {/* 콘텐츠 */}
         <View style={styles.content}>
           <View style={styles.topRow}>
+            {/* 호선 배지 */}
             <View style={[styles.lineBadge, { backgroundColor: getLineColor(item.line_name) }]}>
               <ThemedText style={styles.lineBadgeText}>{item.line_name}</ThemedText>
             </View>
@@ -107,12 +126,25 @@ export default function BestPostsScreen() {
             <View style={{ flex: 1 }} />
             <ThemedText style={styles.time}>{getTimeAgo(item.created_at)}</ThemedText>
           </View>
+
           <ThemedText style={styles.postTitle} numberOfLines={1}>{title}</ThemedText>
-          {body !== title && <ThemedText style={styles.postBody} numberOfLines={2}>{body}</ThemedText>}
+          {body !== title && (
+            <ThemedText style={styles.postBody} numberOfLines={2}>{body}</ThemedText>
+          )}
+
           <View style={styles.stats}>
-            <TouchableOpacity style={styles.statBtn} onPress={(e) => { e.stopPropagation(); handleLike(item.id); }}>
-              <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={15} color={isLiked ? '#FF3B30' : COLORS.textSub} />
-              <ThemedText style={[styles.statText, isLiked && styles.statLiked]}>{item.likes_count || 0}</ThemedText>
+            <TouchableOpacity
+              style={styles.statBtn}
+              onPress={(e) => { e.stopPropagation(); handleLike(item.id); }}
+            >
+              <Ionicons
+                name={isLiked ? 'heart' : 'heart-outline'}
+                size={15}
+                color={isLiked ? '#FF3B30' : COLORS.textSub}
+              />
+              <ThemedText style={[styles.statText, isLiked && styles.statLiked]}>
+                {item.likes_count || 0}
+              </ThemedText>
             </TouchableOpacity>
             <View style={styles.statBtn}>
               <Ionicons name="chatbubble-outline" size={14} color={COLORS.textSub} />
@@ -126,6 +158,7 @@ export default function BestPostsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={COLORS.textMain} />
@@ -133,17 +166,34 @@ export default function BestPostsScreen() {
         <ThemedText style={styles.headerTitle}>실시간 인기 글</ThemedText>
         <View style={styles.backBtn} />
       </View>
+
+      {/* 정렬 탭 */}
       <View style={styles.tabRow}>
         {SORT_TABS.map((tab) => (
-          <TouchableOpacity key={tab.key} style={[styles.tab, sort === tab.key && styles.tabActive]} onPress={() => setSort(tab.key)}>
-            <ThemedText style={[styles.tabText, sort === tab.key && styles.tabTextActive]}>{tab.label}</ThemedText>
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tab, sort === tab.key && styles.tabActive]}
+            onPress={() => setSort(tab.key)}
+          >
+            <ThemedText style={[styles.tabText, sort === tab.key && styles.tabTextActive]}>
+              {tab.label}
+            </ThemedText>
           </TouchableOpacity>
         ))}
       </View>
+
       {loading ? (
-        <View style={styles.loading}><ActivityIndicator color={COLORS.primary} /></View>
+        <View style={styles.loading}>
+          <ActivityIndicator color={COLORS.primary} />
+        </View>
       ) : (
-        <FlatList data={sorted} keyExtractor={(item) => item.id.toString()} renderItem={renderItem} contentContainerStyle={{ paddingTop: 10, paddingBottom: 40 + insets.bottom }} showsVerticalScrollIndicator={false} />
+        <FlatList
+          data={sorted}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingTop: 10, paddingBottom: 40 + insets.bottom }}
+          showsVerticalScrollIndicator={false}
+        />
       )}
     </View>
   );
@@ -151,30 +201,68 @@ export default function BestPostsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 12, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: COLORS.border },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 8, paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
   backBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '800', color: COLORS.textMain },
-  tabRow: { flexDirection: 'row', gap: 8, backgroundColor: 'white', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: COLORS.border },
+
+  tabRow: {
+    flexDirection: 'row', gap: 8,
+    backgroundColor: 'white',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  tab: {
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 20, backgroundColor: COLORS.border,
+  },
   tabActive: { backgroundColor: COLORS.primary },
   tabText: { fontSize: 13, fontWeight: '700', color: COLORS.textSub },
   tabTextActive: { color: 'white' },
+
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  card: { flexDirection: 'row', backgroundColor: 'white', marginHorizontal: 16, marginBottom: 10, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
-  cardTop: { borderWidth: 1.5, borderColor: '#FFB800' },
+
+  card: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    marginHorizontal: 16, marginBottom: 10,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+  },
+  cardTop: {
+    borderWidth: 1.5, borderColor: '#FFB800',
+  },
   topBar: { width: 4, backgroundColor: '#FFB800' },
-  rankCol: { width: 48, alignItems: 'center', paddingTop: 18, gap: 2 },
+
+  rankCol: {
+    width: 48, alignItems: 'center',
+    paddingTop: 18, gap: 2,
+  },
   rankNum: { fontSize: 22, fontWeight: '900', color: COLORS.textSub },
   rankNumTop: { color: '#FFB800' },
   rankChange: { fontSize: 12, color: COLORS.border, fontWeight: '700' },
+
   content: { flex: 1, padding: 14, paddingLeft: 8 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  lineBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+
+  lineBadge: {
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 8,
+  },
   lineBadgeText: { color: 'white', fontSize: 11, fontWeight: '800' },
+
   stationName: { fontSize: 12, fontWeight: '600', color: COLORS.textSub },
   time: { fontSize: 11, color: COLORS.textSub },
+
   postTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textMain, marginBottom: 4 },
   postBody: { fontSize: 13, color: COLORS.textSub, lineHeight: 18, marginBottom: 10 },
+
   stats: { flexDirection: 'row', gap: 14 },
   statBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statText: { fontSize: 13, fontWeight: '600', color: COLORS.textSub },

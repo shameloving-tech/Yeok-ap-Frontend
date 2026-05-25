@@ -25,6 +25,7 @@ const SUPPORTED_LINES = [
   '수인분당선', '경의중앙선', '공항철도', '신분당선',
 ];
 
+// 서울 Open API 500건 제한으로 실시간 데이터가 간헐적으로 누락되는 노선
 const LIMITED_LINES = new Set(['공항철도', '신분당선']);
 
 const FETCH_MS    = 20_000;
@@ -123,7 +124,10 @@ export function TrainLocationSheet({
         { signal: ctrl.signal },
       );
       clearTimeout(timeout);
-      if (!res.ok) { setError(true); return; }
+      if (!res.ok) {
+        setError(true);
+        return;
+      }
       const data: Train[] = await res.json();
       setTrains(data.slice(0, MAX_TRAINS));
       const map: Record<string, number> = {};
@@ -132,6 +136,7 @@ export function TrainLocationSheet({
     } catch (e) {
       clearTimeout(timeout);
       setError(true);
+      console.error('TrainLocationSheet:', e);
     } finally {
       setLoading(false);
     }
@@ -160,7 +165,11 @@ export function TrainLocationSheet({
 
   const color = getLineColor(line);
   const isLimited = LIMITED_LINES.has(line);
-  const handleRetry = () => { setTrains([]); loadTrains(line); };
+
+  const handleRetry = () => {
+    setTrains([]);
+    loadTrains(line);
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -196,7 +205,9 @@ export function TrainLocationSheet({
                   onPress={() => { setLine(l); setTrains([]); setError(false); }}
                   style={[
                     s.tab,
-                    active ? { backgroundColor: c, borderColor: c } : { borderColor: '#E5E5EA' },
+                    active
+                      ? { backgroundColor: c, borderColor: c }
+                      : { borderColor: '#E5E5EA' },
                     limited && !active && { opacity: 0.55 },
                   ]}
                 >
@@ -226,6 +237,11 @@ export function TrainLocationSheet({
               <View style={s.center}>
                 <ActivityIndicator color={color} size="large" />
                 <ThemedText style={s.hint}>열차 정보를 불러오는 중...</ThemedText>
+                {isLimited && (
+                  <ThemedText style={[s.hint, { fontSize: 12 }]}>
+                    이 노선은 데이터가 없을 수 있어요
+                  </ThemedText>
+                )}
               </View>
             ) : error ? (
               <View style={s.center}>
@@ -277,42 +293,93 @@ export function TrainLocationSheet({
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.38)' },
-  sheet: { height: SHEET_HEIGHT, backgroundColor: 'white', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 12 },
-  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E5EA', alignSelf: 'center', marginBottom: 18 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12, gap: 10 },
+  root: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.38)',
+  },
+  sheet: {
+    height: SHEET_HEIGHT,
+    backgroundColor: 'white',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 12,
+  },
+  handle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: '#E5E5EA',
+    alignSelf: 'center', marginBottom: 18,
+  },
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, marginBottom: 12, gap: 10,
+  },
   lineAccent: { width: 4, height: 20, borderRadius: 2 },
   title: { fontSize: 18, fontWeight: '800', color: COLORS.textMain },
   sub: { flex: 1, fontSize: 11, color: COLORS.textSub },
   closeBtn: { padding: 4 },
   tabScroll: { height: 48, flexGrow: 0 },
   tabContent: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },
-  tab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, gap: 5 },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    gap: 5,
+  },
   tabDot: { width: 8, height: 8, borderRadius: 4 },
   tabText: { fontSize: 12, fontWeight: '700' },
   body: { flex: 1, marginTop: 8 },
   bodyContent: { padding: 16, gap: 10, flexGrow: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 40 },
   hint: { fontSize: 14, color: COLORS.textSub, textAlign: 'center' },
-  retryBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 14 },
+  retryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
   retryText: { color: 'white', fontWeight: '700', fontSize: 14 },
-  footer: { flexDirection: 'row', alignItems: 'center', gap: 5, justifyContent: 'center', paddingVertical: 8 },
+  footer: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    justifyContent: 'center', paddingVertical: 8,
+  },
   footerText: { fontSize: 11, color: COLORS.textSub },
 });
 
 const card = StyleSheet.create({
-  wrap: { backgroundColor: '#F8F9FB', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#EFEFEF' },
+  wrap: {
+    backgroundColor: '#F8F9FB',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 18, gap: 8 },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderWidth: 1.5, borderRadius: 10,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
   badgeText: { fontSize: 12, fontWeight: '700' },
   dir: { flex: 1, fontSize: 12, color: COLORS.textSub, fontWeight: '600' },
-  timePill: { backgroundColor: '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  timePill: {
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10,
+  },
   timeText: { fontSize: 13, fontWeight: '800', color: COLORS.textMain },
   seg: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 2 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#C7C7CC' },
   track: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 20 },
   filled: { height: 4, borderRadius: 2 },
-  trainIcon: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginHorizontal: 1, zIndex: 1, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3 },
+  trainIcon: {
+    width: 22, height: 22, borderRadius: 11,
+    justifyContent: 'center', alignItems: 'center',
+    marginHorizontal: 1, zIndex: 1,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
+  },
   empty: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2 },
   names: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   stName: { fontSize: 12, color: COLORS.textSub, fontWeight: '600', maxWidth: '46%' },

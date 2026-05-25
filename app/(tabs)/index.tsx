@@ -2,6 +2,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
+import { router } from 'expo-router';
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -212,14 +213,11 @@ export default function HomeScreen() {
     { id: 'more', name: '더보기', icon: 'grid', type: 'Ionicons' },
   ];
 
-  const openStationDetail = async (s: { station_name: string; line_name: string; congestion_level?: any }) => {
-    await saveRecentStation({ station_name: s.station_name, line_name: s.line_name });
-    const live = stationList.find(x => x.station_name === s.station_name && x.line_name === s.line_name);
-    setDetailStation({
-      station_name: s.station_name,
-      line_name: s.line_name,
-      congestion_level: live?.congestion_level ?? s.congestion_level ?? null,
-    });
+  const handleNearbyStationPress = async () => {
+    if (nearestStation) {
+      await saveRecentStation(nearestStation);
+      router.push('/(tabs)/search');
+    }
   };
 
   return (
@@ -249,7 +247,7 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         <View style={styles.searchSection}>
-          <TouchableOpacity style={styles.searchBar}>
+          <TouchableOpacity style={styles.searchBar} onPress={() => router.push('/(tabs)/search')}>
             <Ionicons name="search" size={20} color={COLORS.primary} style={styles.searchIcon} />
             <ThemedText style={styles.searchText}>어느 역으로 갈까요?</ThemedText>
           </TouchableOpacity>

@@ -47,8 +47,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: '검색',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="search" color={color} />,
+          title: '길찾기',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="navigate" color={color} />,
         }}
       />
       <Tabs.Screen
