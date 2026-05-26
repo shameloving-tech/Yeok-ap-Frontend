@@ -10,6 +10,7 @@ import { toastConfig } from '@/components/toast-config';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AnimatedSplashScreen } from '@/components/animated-splash-screen';
+import { SubwayDataProvider } from '@/contexts/SubwayDataContext';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -49,17 +50,19 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <View style={styles.container}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ headerShown: false }} />
-          <Stack.Screen name="report/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="best-posts" options={{ headerShown: false }} />
-        </Stack>
-        {showAnimatedSplash && <AnimatedSplashScreen isExiting={isExiting} />}
-      </View>
-      <StatusBar style="auto" />
-      <Toast config={toastConfig} topOffset={60} />
+      <SubwayDataProvider>
+        <View style={styles.container}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ headerShown: false }} />
+            <Stack.Screen name="report/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="best-posts" options={{ headerShown: false }} />
+          </Stack>
+          {showAnimatedSplash && <AnimatedSplashScreen isExiting={isExiting} />}
+        </View>
+        <StatusBar style="auto" />
+        <Toast config={toastConfig} topOffset={60} />
+      </SubwayDataProvider>
     </ThemeProvider>
   );
 }

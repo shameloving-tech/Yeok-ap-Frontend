@@ -20,7 +20,7 @@ import { StationDetailModal } from '@/components/StationDetailModal';
 import { TrainLocationSheet } from '@/app/components/TrainLocationSheet';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { LINE_CONFIG, getLineColor, getLineNumber } from '@/constants/lines';
-import { useSubwayData } from '@/hooks/useSubwayData';
+import { useSubwayDataContext } from '@/contexts/SubwayDataContext';
 import { FavoriteStation, getFavoriteStations } from '@/utils/favorites';
 
 const { width } = Dimensions.get('window');
@@ -47,7 +47,7 @@ export const saveRecentStation = async (station: any) => {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { stationList, isConnected } = useSubwayData();
+  const { stationList, isConnected } = useSubwayDataContext();
   const [followedLines, setFollowedLines] = useState<string[]>([]);
   const [showOnlyFollowed, setShowOnlyFollowed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

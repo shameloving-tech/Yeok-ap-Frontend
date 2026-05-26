@@ -37,8 +37,10 @@ type Train = {
   train_no: string;
   direction: string;
   status_msg: string;
+  prev_prev_station: string | null;
   prev_station: string | null;
   next_station: string;
+  next_next_station: string | null;
   barvlDt: number;
   up_down: string;
 };
@@ -71,8 +73,11 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
         </View>
       </View>
 
+      {/* 4-station segment: 전전역 ─ 전역 ──🚂── 현재역 ─ 다음역 */}
       <View style={card.seg}>
-        <View style={card.dot} />
+        <View style={[card.dot, { backgroundColor: '#C7C7CC' }]} />
+        <View style={card.shortConn} />
+        <View style={[card.dot, { backgroundColor: '#8E8E93' }]} />
         <View style={card.track}>
           <View style={[card.filled, { flex: Math.max(0.001, progress), backgroundColor: color }]} />
           <View style={[card.trainIcon, { backgroundColor: color }]}>
@@ -81,14 +86,22 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
           <View style={[card.empty, { flex: Math.max(0.001, 1 - progress) }]} />
         </View>
         <View style={[card.dot, { backgroundColor: color }]} />
+        <View style={[card.shortConn, { backgroundColor: '#E5E5EA' }]} />
+        <View style={[card.dot, { backgroundColor: '#C7C7CC' }]} />
       </View>
 
-      <View style={card.names}>
-        <ThemedText style={card.stName} numberOfLines={1}>
+      <View style={card.names4}>
+        <ThemedText style={card.stName4} numberOfLines={1}>
+          {train.prev_prev_station ?? ''}
+        </ThemedText>
+        <ThemedText style={[card.stName4, { textAlign: 'center' }]} numberOfLines={1}>
           {train.prev_station ?? '?'}
         </ThemedText>
-        <ThemedText style={[card.stName, { textAlign: 'right' }]} numberOfLines={1}>
+        <ThemedText style={[card.stName4, { textAlign: 'center', color, fontWeight: '800' }]} numberOfLines={1}>
           {train.next_station}
+        </ThemedText>
+        <ThemedText style={[card.stName4, { textAlign: 'right' }]} numberOfLines={1}>
+          {train.next_next_station ?? ''}
         </ThemedText>
       </View>
 
@@ -202,7 +215,7 @@ export function TrainLocationSheet({
               return (
                 <TouchableOpacity
                   key={l}
-                  onPress={() => { setLine(l); setTrains([]); setError(false); }}
+                  onPress={() => { setLine(l); setTrains([]); setError(false); setSecs({}); }}
                   style={[
                     s.tab,
                     active
@@ -381,7 +394,8 @@ const card = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
   },
   empty: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2 },
-  names: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  stName: { fontSize: 12, color: COLORS.textSub, fontWeight: '600', maxWidth: '46%' },
+  shortConn: { width: 20, height: 3, backgroundColor: '#D1D1D6', borderRadius: 1.5 },
+  names4: { flexDirection: 'row', marginBottom: 6, marginTop: 4 },
+  stName4: { flex: 1, fontSize: 11, color: COLORS.textSub, fontWeight: '600' },
   status: { fontSize: 11, color: COLORS.textSub, textAlign: 'center' },
 });

@@ -18,7 +18,7 @@ import { StationDetailModal } from '@/components/StationDetailModal';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor, getLineNumber } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
-import { useSubwayData } from '@/hooks/useSubwayData';
+import { useSubwayDataContext } from '@/contexts/SubwayDataContext';
 
 type Station = { id: number; station_name: string; line: string };
 type RouteStep = { type: string; station: string; line: string; prev_line?: string };
@@ -63,7 +63,7 @@ export default function RouteScreen() {
   const [routeError, setRouteError] = useState('');
   const fromRef = useRef<TextInput>(null);
   const toRef = useRef<TextInput>(null);
-  const { stationList } = useSubwayData();
+  const { stationList } = useSubwayDataContext();
 
   const fetchSuggestions = useCallback(async (q: string) => {
     if (!q.trim()) { setSuggestions([]); return; }
@@ -71,11 +71,12 @@ export default function RouteScreen() {
     try {
       const res = await fetch(`${BASE_URL}/api/v1/stations?q=${encodeURIComponent(q.trim())}`);
       const data = await res.json();
-      // Deduplicate by station_name (keep first occurrence per name)
+      // Deduplicate: treat "강남" and "강남역" as same station
       const seen = new Set<string>();
       const deduped = (data as Station[]).filter(s => {
-        if (seen.has(s.station_name)) return false;
-        seen.add(s.station_name);
+        const key = s.station_name.replace(/역$/, '');
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       });
       setSuggestions(deduped.slice(0, 8));
@@ -91,14 +92,15 @@ export default function RouteScreen() {
   }, [fromText, toText, activeField, fetchSuggestions]);
 
   const selectStation = (station: Station) => {
+    const displayName = station.station_name.replace(/역$/, '');
     if (activeField === 'from') {
-      setFromStation(station);
-      setFromText(station.station_name);
+      setFromStation({ ...station, station_name: displayName });
+      setFromText(displayName);
       setActiveField('to');
       setTimeout(() => toRef.current?.focus(), 100);
     } else {
-      setToStation(station);
-      setToText(station.station_name);
+      setToStation({ ...station, station_name: displayName });
+      setToText(displayName);
       setActiveField(null);
     }
     setSuggestions([]);
