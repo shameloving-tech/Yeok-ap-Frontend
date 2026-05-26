@@ -98,9 +98,10 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
+      <View style={styles.overlay}>
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
 
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + 8 }]}>
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 8 }]}>
         {/* Handle */}
         <View style={styles.handle} />
 
@@ -305,13 +306,18 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
             <ThemedText style={styles.hintText}>역을 탭하면 혼잡도를 확인할 수 있어요</ThemedText>
           </View>
         )}
+        </View>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
   sheet: {
     backgroundColor: 'white',
     borderTopLeftRadius: 28,
