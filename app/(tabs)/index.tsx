@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { StationDetailModal } from '@/components/StationDetailModal';
 import { TrainLocationSheet } from '@/app/components/TrainLocationSheet';
-import { LineCongestionSheet } from '@/app/components/LineCongestionSheet';
+import { LineMapModal } from '@/app/components/LineMapModal';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { LINE_CONFIG, getLineColor, getLineNumber } from '@/constants/lines';
 import { useSubwayDataContext } from '@/contexts/SubwayDataContext';
@@ -510,12 +510,12 @@ export default function HomeScreen() {
 
       <TrainLocationSheet visible={trainSheetOpen} onClose={() => setTrainSheetOpen(false)} />
 
-      <LineCongestionSheet
+      <LineMapModal
         visible={!!congestionLine}
         lineName={congestionLine}
         liveStations={stationList}
         onClose={() => setCongestionLine(null)}
-        onStationPress={(station) => { setCongestionLine(null); openStationDetail(station); }}
+        onStationPress={(station) => openStationDetail(station)}
       />
 
       <StationDetailModal
