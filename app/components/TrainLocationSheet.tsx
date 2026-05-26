@@ -20,7 +20,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.72;
 
 const SUPPORTED_LINES = [
-  '2호선', '1호선', '3호선', '4호선', '5호선',
+  '1호선', '2호선', '3호선', '4호선', '5호선',
   '6호선', '7호선', '8호선', '9호선',
   '수인분당선', '경의중앙선', '공항철도', '신분당선',
 ];
@@ -95,7 +95,7 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
           {train.prev_prev_station ?? ''}
         </ThemedText>
         <ThemedText style={[card.stName4, { textAlign: 'center' }]} numberOfLines={1}>
-          {train.prev_station ?? '?'}
+          {train.prev_station ?? ''}
         </ThemedText>
         <ThemedText style={[card.stName4, { textAlign: 'center', color, fontWeight: '800' }]} numberOfLines={1}>
           {train.next_station}
@@ -195,7 +195,7 @@ export function TrainLocationSheet({
             <View style={[s.lineAccent, { backgroundColor: color }]} />
             <ThemedText style={s.title}>열차 위치</ThemedText>
             <ThemedText style={s.sub}>
-              {isLimited ? '일부 노선 실시간 데이터 제한' : '20초 자동 갱신 · 연착 자동 반영'}
+              {isLimited ? '일부 노선 실시간 데이터 제한' : '노선 전체 열차 · 빠른 도착순'}
             </ThemedText>
             <TouchableOpacity onPress={onClose} style={s.closeBtn}>
               <Ionicons name="close" size={22} color={COLORS.textSub} />

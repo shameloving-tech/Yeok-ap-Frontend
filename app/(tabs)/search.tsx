@@ -115,7 +115,7 @@ export default function RouteScreen() {
     setRouteError('');
   };
 
-  const searchRoute = async () => {
+  const searchRoute = async (overrideMode?: 'fastest' | 'min_transfers') => {
     const from = fromStation?.station_name || fromText.trim();
     const to = toStation?.station_name || toText.trim();
     if (!from || !to) return;
@@ -125,7 +125,7 @@ export default function RouteScreen() {
     setActiveField(null);
     try {
       const res = await fetch(
-        `${BASE_URL}/api/v1/stations/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&mode=${mode}`
+        `${BASE_URL}/api/v1/stations/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&mode=${overrideMode ?? mode}`
       );
       const data = await res.json();
       if (data.error) { setRouteError(data.error); }
@@ -133,6 +133,15 @@ export default function RouteScreen() {
     } catch { setRouteError('네트워크 오류가 발생했습니다.'); }
     finally { setRouteLoading(false); }
   };
+
+  // 모드 변경 시 결과가 이미 있으면 자동 재검색
+  useEffect(() => {
+    const from = fromStation?.station_name || fromText.trim();
+    const to = toStation?.station_name || toText.trim();
+    if (!from || !to) return;
+    if (!routeResult && !routeError) return;
+    searchRoute(mode);
+  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showSuggestions = activeField !== null && suggestions.length > 0;
 
