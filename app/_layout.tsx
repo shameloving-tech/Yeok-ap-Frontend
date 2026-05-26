@@ -10,6 +10,7 @@ import { toastConfig } from '@/components/toast-config';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AnimatedSplashScreen } from '@/components/animated-splash-screen';
+import { SubwayDataProvider } from '@/contexts/SubwayDataContext';
 
 // 네이티브 스플래시가 자동으로 숨겨지는 것을 방지
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -65,19 +66,21 @@ export default function RootLayout() {
   // 그래야 그 위에 AnimatedSplashScreen을 띄울 수 있음
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <View style={styles.container}>
-        {/* 메인 앱 컨텐츠 (스플래시 뒤에 미리 렌더링) */}
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ headerShown: false }} />
-          <Stack.Screen name="report/[id]" options={{ headerShown: false }} />
-        </Stack>
+      <SubwayDataProvider>
+        <View style={styles.container}>
+          {/* 메인 앱 컨텐츠 (스플래시 뒤에 미리 렌더링) */}
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ headerShown: false }} />
+            <Stack.Screen name="report/[id]" options={{ headerShown: false }} />
+          </Stack>
 
-        {/* 커스텀 애니메이션 스플래시 (최상단) */}
-        {showAnimatedSplash && <AnimatedSplashScreen isExiting={isExiting} />}
-      </View>
-      <StatusBar style="auto" />
-      <Toast config={toastConfig} topOffset={60} />
+          {/* 커스텀 애니메이션 스플래시 (최상단) */}
+          {showAnimatedSplash && <AnimatedSplashScreen isExiting={isExiting} />}
+        </View>
+        <StatusBar style="auto" />
+        <Toast config={toastConfig} topOffset={60} />
+      </SubwayDataProvider>
     </ThemeProvider>
   );
 }
