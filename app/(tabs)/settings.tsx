@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Link, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 
 import { ThemedText } from '@/components/themed-text';
 import { APP_COLORS as COLORS } from '@/constants/theme';
+import { getOrCreateNickname } from '@/utils/deviceToken';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -52,6 +54,18 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const [nickname, setNickname] = useState('');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      const nick = await getOrCreateNickname();
+      setNickname(nick);
+      const img = await AsyncStorage.getItem('user_profile_image');
+      if (img) setProfileImage(img);
+    };
+    load();
+  }, []);
 
   const handleLogout = () =>
     Alert.alert('로그아웃', '정말 로그아웃 하시겠어요?', [
@@ -71,6 +85,24 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+
+        {/* 프로필 카드 */}
+        <Link href="/modal" asChild>
+          <TouchableOpacity style={styles.profileCard} activeOpacity={0.7}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.profileAvatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.profileAvatar, styles.profileAvatarFallback]}>
+                <ThemedText style={styles.profileAvatarText}>{nickname?.[0] || '역'}</ThemedText>
+              </View>
+            )}
+            <View style={styles.profileInfo}>
+              <ThemedText style={styles.profileNickname}>{nickname || '닉네임 없음'}</ThemedText>
+              <ThemedText style={styles.profileSub}>프로필 편집 →</ThemedText>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#C7C7CC" />
+          </TouchableOpacity>
+        </Link>
 
         <Section title="계정 관리">
           <Row icon="person-outline"    iconColor={COLORS.primary}  label="프로필 수정"   href="/modal" />
@@ -134,6 +166,26 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textMain },
 
   content: { paddingHorizontal: 20, paddingBottom: 40 },
+
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 24,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  profileAvatar: { width: 56, height: 56, borderRadius: 28 },
+  profileAvatarFallback: { backgroundColor: COLORS.primary + '20', justifyContent: 'center', alignItems: 'center' },
+  profileAvatarText: { fontSize: 22, fontWeight: '800', color: COLORS.primary },
+  profileInfo: { flex: 1 },
+  profileNickname: { fontSize: 17, fontWeight: '700', color: COLORS.textMain, marginBottom: 3 },
+  profileSub: { fontSize: 13, color: COLORS.textSub },
 
   section: { marginBottom: 24 },
   sectionTitle: {

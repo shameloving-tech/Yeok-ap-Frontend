@@ -17,6 +17,7 @@ import Toast from 'react-native-toast-message';
 
 import { ThemedText } from '@/components/themed-text';
 import { APP_COLORS as COLORS } from '@/constants/theme';
+import { getOrCreateNickname } from '@/utils/deviceToken';
 
 export default function ProfileEditScreen() {
   const insets = useSafeAreaInsets();
@@ -24,10 +25,13 @@ export default function ProfileEditScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
   useEffect(() => {
-    AsyncStorage.multiGet(['user_nickname', 'user_profile_image']).then(([nick, img]) => {
-      if (nick[1]) setNickname(nick[1]);
-      if (img[1]) setProfileImage(img[1]);
-    });
+    const init = async () => {
+      const nick = await getOrCreateNickname();
+      setNickname(nick);
+      const img = await AsyncStorage.getItem('user_profile_image');
+      if (img) setProfileImage(img);
+    };
+    init();
   }, []);
 
   const pickImage = async () => {

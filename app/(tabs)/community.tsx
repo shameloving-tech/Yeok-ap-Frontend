@@ -25,6 +25,7 @@ import { ThemedText } from '@/components/themed-text';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor, getLineNumber } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
+import { getDeviceToken, getOrCreateNickname } from '@/utils/deviceToken';
 
 const { width } = Dimensions.get('window');
 
@@ -168,11 +169,12 @@ export default function CommunityScreen() {
     if (!commentText.trim() || commentsReportId === null) return;
     setCommentSubmitting(true);
     try {
-      const nickname = (await AsyncStorage.getItem('user_nickname')) || '익명';
+      const nickname = await getOrCreateNickname();
+      const token = await getDeviceToken();
       const res = await fetch(`${BASE_URL}/reports/${commentsReportId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment: { content: commentText.trim(), nickname } }),
+        body: JSON.stringify({ comment: { content: commentText.trim(), nickname, device_token: token } }),
       });
       if (res.ok) {
         const newComment = await res.json();
@@ -217,8 +219,10 @@ export default function CommunityScreen() {
       formData.append('report[direction]', direction);
       formData.append('report[content]', fullContent);
       formData.append('report[status]', '혼잡');
-      const nickname = (await AsyncStorage.getItem('user_nickname')) || '익명';
+      const nickname = await getOrCreateNickname();
+      const token = await getDeviceToken();
       formData.append('report[nickname]', nickname);
+      formData.append('report[device_token]', token);
       if (image) {
         const filename = image.split('/').pop() || 'image.jpg';
         formData.append('report[image]', { uri: image, name: filename, type: 'image/jpeg' } as any);
