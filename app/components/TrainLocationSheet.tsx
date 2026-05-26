@@ -202,7 +202,7 @@ export function TrainLocationSheet({
               return (
                 <TouchableOpacity
                   key={l}
-                  onPress={() => { setLine(l); setTrains([]); setError(false); }}
+                  onPress={() => { setLine(l); setTrains([]); setError(false); setSecs({}); }}
                   style={[
                     s.tab,
                     active
