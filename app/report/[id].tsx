@@ -52,6 +52,7 @@ export default function ReportDetailScreen() {
 
   const [myNickname, setMyNickname] = useState('');
   const [myDeviceToken, setMyDeviceToken] = useState('');
+  const [myReportIds, setMyReportIds] = useState<number[]>([]);
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
@@ -80,8 +81,12 @@ export default function ReportDetailScreen() {
       setMyNickname(nick);
       const token = await getDeviceToken();
       setMyDeviceToken(token);
-      const rawFlags = await AsyncStorage.getItem(FLAGGED_COMMENTS_KEY);
+      const [rawFlags, rawIds] = await Promise.all([
+        AsyncStorage.getItem(FLAGGED_COMMENTS_KEY),
+        AsyncStorage.getItem('my_report_ids'),
+      ]);
       if (rawFlags) setFlaggedComments(new Set(JSON.parse(rawFlags)));
+      if (rawIds) setMyReportIds(JSON.parse(rawIds));
     };
     init();
     fetchReport();
@@ -288,7 +293,8 @@ export default function ReportDetailScreen() {
     }
   };
 
-  const isMyPost = !!myDeviceToken && !!report?.device_token && report.device_token === myDeviceToken;
+  const isMyPost = (!!myDeviceToken && !!report?.device_token && report.device_token === myDeviceToken)
+    || myReportIds.includes(Number(id));
   const [title, ...bodyLines] = (report?.content || '').split('\n');
   const body = bodyLines.join('\n');
 

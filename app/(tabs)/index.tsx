@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { StationDetailModal } from '@/components/StationDetailModal';
 import { TrainLocationSheet } from '@/app/components/TrainLocationSheet';
+import { LineCongestionSheet } from '@/app/components/LineCongestionSheet';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { LINE_CONFIG, getLineColor, getLineNumber } from '@/constants/lines';
 import { useSubwayDataContext } from '@/contexts/SubwayDataContext';
@@ -57,6 +58,9 @@ export default function HomeScreen() {
   const [favoriteStations, setFavoriteStations] = useState<FavoriteStation[]>([]);
   const [detailStation, setDetailStation] = useState<any>(null);
   const [trainSheetOpen, setTrainSheetOpen] = useState(false);
+  const [congestionLine, setCongestionLine] = useState<string | null>(null);
+
+  const openStationDetail = (station: any) => setDetailStation(station);
 
   useEffect(() => {
     loadPreferences();
@@ -367,7 +371,12 @@ export default function HomeScreen() {
             return (
               <View style={styles.congestionList}>
                 {displayLines.map((line, idx) => (
-                  <View key={line.id} style={[styles.lineRow, idx === displayLines.length - 1 && { borderBottomWidth: 0 }]}>
+                  <TouchableOpacity
+                    key={line.id}
+                    style={[styles.lineRow, idx === displayLines.length - 1 && { borderBottomWidth: 0 }]}
+                    activeOpacity={0.7}
+                    onPress={() => setCongestionLine(line.name)}
+                  >
                     <View style={[styles.lineCircle, { backgroundColor: line.color }]}>
                       <ThemedText style={styles.lineCircleText}>
                         {line.name.match(/(\d+)/)?.[1] || line.name.slice(0, 2)}
@@ -378,7 +387,7 @@ export default function HomeScreen() {
                       <ThemedText style={styles.lineMsg} numberOfLines={1}>{line.msg}</ThemedText>
                     </View>
                     <TouchableOpacity
-                      onPress={() => toggleFollow(line.name)}
+                      onPress={(e) => { e.stopPropagation(); toggleFollow(line.name); }}
                       style={{ marginRight: 10 }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
@@ -393,7 +402,8 @@ export default function HomeScreen() {
                         {line.status}
                       </ThemedText>
                     </View>
-                  </View>
+                    <Ionicons name="chevron-forward" size={14} color="#C7C7CC" style={{ marginLeft: 4 }} />
+                  </TouchableOpacity>
                 ))}
               </View>
             );
@@ -496,6 +506,14 @@ export default function HomeScreen() {
       </TouchableOpacity>
 
       <TrainLocationSheet visible={trainSheetOpen} onClose={() => setTrainSheetOpen(false)} />
+
+      <LineCongestionSheet
+        visible={!!congestionLine}
+        lineName={congestionLine}
+        stations={stationList}
+        onClose={() => setCongestionLine(null)}
+        onStationPress={(station) => { setCongestionLine(null); openStationDetail(station); }}
+      />
 
       <StationDetailModal
         visible={!!detailStation}

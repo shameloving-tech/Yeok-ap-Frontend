@@ -229,6 +229,13 @@ export default function CommunityScreen() {
       }
       const response = await fetch(`${BASE_URL}/reports`, { method: 'POST', body: formData });
       if (response.ok) {
+        const result = await response.json();
+        if (result.id) {
+          const raw = await AsyncStorage.getItem('my_report_ids');
+          const ids: number[] = raw ? JSON.parse(raw) : [];
+          ids.push(result.id);
+          await AsyncStorage.setItem('my_report_ids', JSON.stringify(ids));
+        }
         setIsPostModalOpen(false);
         setImage(null); setTitle(''); setContent(''); setStation(''); setDirection(''); setPostLine('');
         await AsyncStorage.removeItem(REPORTS_CACHE_KEY(selectedLine));
@@ -657,7 +664,7 @@ const styles = StyleSheet.create({
   statText: { fontSize: 13, color: COLORS.textSub, fontWeight: '600' },
   statTextActive: { color: COLORS.primary },
 
-  fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 20, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', elevation: 8 },
+  fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, elevation: 8 },
 
   modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#F8F9FB', zIndex: 1000 },
   modalHeader: {
