@@ -11,24 +11,25 @@ jobs:
   build:
     name: Android APK (Gradle Release)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Install dependencies
         run: npm ci
 
+      # Gradle 의존성 캐시 — package-lock 변경 시에만 무효화
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -37,16 +38,8 @@ jobs:
             ~/.gradle/wrapper
             ~/.gradle/build-cache
           key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: gradle-${{ runner.os }}-
-
-      - name: Cache NDK build outputs
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules/react-native-reanimated/android/build
-            node_modules/react-native-worklets/android/build
-          key: ndk-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: ndk-${{ runner.os }}-
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       - name: Expo Prebuild
         run: npx expo prebuild --platform android --clean
@@ -61,6 +54,7 @@ jobs:
             let g = fs.readFileSync(file, 'utf8');
             g = g.replace(/signingConfig signingConfigs\.release/g, 'signingConfig signingConfigs.debug');
             fs.writeFileSync(file, g);
+            console.log('Patched signingConfig for release build');
           "
 
       - name: Build Release APK
@@ -69,7 +63,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --build-cache
         env:
-          GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=512m -Dorg.gradle.parallel=true"
+          GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError
 
       - name: Get version
         id: ver
@@ -77,6 +71,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: "Yeok-Ap_${{ steps.ver.outputs.v }}"
+          name: Yeok-Ap_${{ steps.ver.outputs.v }}
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 90
