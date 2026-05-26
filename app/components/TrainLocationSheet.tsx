@@ -20,7 +20,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.72;
 
 const SUPPORTED_LINES = [
-  '1호선', '2호선', '3호선', '4호선', '5호선',
+  '2호선', '1호선', '3호선', '4호선', '5호선',
   '6호선', '7호선', '8호선', '9호선',
   '수인분당선', '경의중앙선', '공항철도', '신분당선',
 ];
@@ -73,49 +73,36 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
         </View>
       </View>
 
-      {/* 4-station track: dot+label per column, connector lines aligned via shared height */}
-      <View style={card.stationsRow}>
-        <View style={card.stNode}>
-          <View style={card.stDotWrap}>
-            <View style={[card.stDot, { backgroundColor: '#C7C7CC' }]} />
-          </View>
-          <ThemedText style={card.stLabel} numberOfLines={1}>
-            {train.prev_prev_station ?? ''}
-          </ThemedText>
-        </View>
-        <View style={card.connSmall} />
-        <View style={card.stNode}>
-          <View style={card.stDotWrap}>
-            <View style={[card.stDot, { backgroundColor: '#8E8E93' }]} />
-          </View>
-          <ThemedText style={card.stLabel} numberOfLines={1}>
-            {train.prev_station ?? ''}
-          </ThemedText>
-        </View>
-        <View style={card.mainTrack}>
-          <View style={[card.trackFill, { flex: Math.max(0.001, progress), backgroundColor: color }]} />
+      {/* 4-station segment: 전전역 ─ 전역 ──🚂── 현재역 ─ 다음역 */}
+      <View style={card.seg}>
+        <View style={[card.dot, { backgroundColor: '#C7C7CC' }]} />
+        <View style={card.shortConn} />
+        <View style={[card.dot, { backgroundColor: '#8E8E93' }]} />
+        <View style={card.track}>
+          <View style={[card.filled, { flex: Math.max(0.001, progress), backgroundColor: color }]} />
           <View style={[card.trainIcon, { backgroundColor: color }]}>
             <Ionicons name="train" size={9} color="white" />
           </View>
-          <View style={[card.trackEmpty, { flex: Math.max(0.001, 1 - progress) }]} />
+          <View style={[card.empty, { flex: Math.max(0.001, 1 - progress) }]} />
         </View>
-        <View style={card.stNode}>
-          <View style={card.stDotWrap}>
-            <View style={[card.stDot, { backgroundColor: color }]} />
-          </View>
-          <ThemedText style={[card.stLabel, { color, fontWeight: '800' }]} numberOfLines={1}>
-            {train.next_station}
-          </ThemedText>
-        </View>
-        <View style={[card.connSmall, { backgroundColor: '#E5E5EA' }]} />
-        <View style={card.stNode}>
-          <View style={card.stDotWrap}>
-            <View style={[card.stDot, { backgroundColor: '#C7C7CC' }]} />
-          </View>
-          <ThemedText style={card.stLabel} numberOfLines={1}>
-            {train.next_next_station ?? ''}
-          </ThemedText>
-        </View>
+        <View style={[card.dot, { backgroundColor: color }]} />
+        <View style={[card.shortConn, { backgroundColor: '#E5E5EA' }]} />
+        <View style={[card.dot, { backgroundColor: '#C7C7CC' }]} />
+      </View>
+
+      <View style={card.names4}>
+        <ThemedText style={card.stName4} numberOfLines={1}>
+          {train.prev_prev_station ?? ''}
+        </ThemedText>
+        <ThemedText style={[card.stName4, { textAlign: 'center' }]} numberOfLines={1}>
+          {train.prev_station ?? '?'}
+        </ThemedText>
+        <ThemedText style={[card.stName4, { textAlign: 'center', color, fontWeight: '800' }]} numberOfLines={1}>
+          {train.next_station}
+        </ThemedText>
+        <ThemedText style={[card.stName4, { textAlign: 'right' }]} numberOfLines={1}>
+          {train.next_next_station ?? ''}
+        </ThemedText>
       </View>
 
       <ThemedText style={card.status} numberOfLines={1}>{train.status_msg}</ThemedText>
@@ -208,7 +195,7 @@ export function TrainLocationSheet({
             <View style={[s.lineAccent, { backgroundColor: color }]} />
             <ThemedText style={s.title}>열차 위치</ThemedText>
             <ThemedText style={s.sub}>
-              {isLimited ? '일부 노선 실시간 데이터 제한' : '노선 전체 열차 · 빠른 도착순'}
+              {isLimited ? '일부 노선 실시간 데이터 제한' : '20초 자동 갱신 · 연착 자동 반영'}
             </ThemedText>
             <TouchableOpacity onPress={onClose} style={s.closeBtn}>
               <Ionicons name="close" size={22} color={COLORS.textSub} />
@@ -383,7 +370,7 @@ const card = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFEFEF',
   },
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 18, gap: 8 },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1.5, borderRadius: 10,
@@ -396,40 +383,19 @@ const card = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10,
   },
   timeText: { fontSize: 13, fontWeight: '800', color: COLORS.textMain },
-  // 4-station track layout
-  stationsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  stNode: {
-    alignItems: 'center',
-    width: 52,
-  },
-  stDotWrap: {
-    height: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stDot: { width: 10, height: 10, borderRadius: 5 },
-  stLabel: {
-    fontSize: 10,
-    color: COLORS.textSub,
-    fontWeight: '600',
-    textAlign: 'center',
-    width: 52,
-    marginTop: 2,
-  },
-  // marginTop: (22 - 3) / 2 = 9.5 → centers the line at the same y as the dot center
-  connSmall: { width: 16, height: 3, backgroundColor: '#D1D1D6', borderRadius: 1.5, marginTop: 9.5 },
-  mainTrack: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 22 },
-  trackFill: { height: 4, borderRadius: 2 },
-  trackEmpty: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2 },
+  seg: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 2 },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#C7C7CC' },
+  track: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 20 },
+  filled: { height: 4, borderRadius: 2 },
   trainIcon: {
     width: 22, height: 22, borderRadius: 11,
     justifyContent: 'center', alignItems: 'center',
     marginHorizontal: 1, zIndex: 1,
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
   },
+  empty: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2 },
+  shortConn: { width: 20, height: 3, backgroundColor: '#D1D1D6', borderRadius: 1.5 },
+  names4: { flexDirection: 'row', marginBottom: 6, marginTop: 4 },
+  stName4: { flex: 1, fontSize: 11, color: COLORS.textSub, fontWeight: '600' },
   status: { fontSize: 11, color: COLORS.textSub, textAlign: 'center' },
 });
