@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -14,6 +14,11 @@ import { ThemedText } from '@/components/themed-text';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
+
+// 혼잡도 데이터가 제공되지 않는 노선 (서울교통공사 외 운영사)
+const UNSUPPORTED_CONGESTION_LINES = new Set([
+  '인천1호선', '인천2호선', '김포골드라인', '서해선', '경강선', 'GTX-A',
+]);
 
 type Props = {
   visible: boolean;
@@ -50,19 +55,24 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
   const [stations, setStations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState(false);
 
-  useEffect(() => {
-    if (!lineName || !visible) { setSelected(null); return; }
+  const isUnsupported = lineName ? UNSUPPORTED_CONGESTION_LINES.has(lineName) : false;
+
+  const loadStations = useCallback((name: string) => {
     setLoading(true);
     setStations([]);
     setSelected(null);
+    setFetchError(false);
 
-    fetch(`${BASE_URL}/api/v1/stations/line_map?line=${encodeURIComponent(lineName)}`)
-      .then(r => r.json())
+    fetch(`${BASE_URL}/api/v1/stations/line_map?line=${encodeURIComponent(name)}`)
+      .then(r => {
+        if (!r.ok) throw new Error('api');
+        return r.json();
+      })
       .then((data: any[]) => {
-        if (!Array.isArray(data)) { setStations([]); return; }
+        if (!Array.isArray(data)) throw new Error('api');
         setStations(data);
-        // 가장 혼잡한 역으로 자동 스크롤
         const worst = data.findIndex(s => s.congestion_level === '폭발' || s.congestion_level === '혼잡');
         if (worst > 3) {
           setTimeout(() => {
@@ -70,9 +80,14 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
           }, 400);
         }
       })
-      .catch(() => setStations([]))
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
-  }, [lineName, visible]);
+  }, []);
+
+  useEffect(() => {
+    if (!lineName || !visible) { setSelected(null); return; }
+    loadStations(lineName);
+  }, [lineName, visible, loadStations]);
 
   if (!lineName) return null;
 
@@ -119,10 +134,31 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
           </View>
         </View>
 
+        {/* 미지원 노선 안내 배너 */}
+        {isUnsupported && (
+          <View style={styles.unsupportedBanner}>
+            <Ionicons name="information-circle-outline" size={15} color="#FF9500" />
+            <ThemedText style={styles.unsupportedText}>
+              이 노선은 실시간 혼잡도 데이터가 지원되지 않습니다
+            </ThemedText>
+          </View>
+        )}
+
         {/* 노선도 맵 */}
         {loading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={lineColor} size="large" />
+          </View>
+        ) : fetchError ? (
+          <View style={styles.loadingBox}>
+            <Ionicons name="cloud-offline-outline" size={36} color={COLORS.textSub} />
+            <ThemedText style={styles.emptyText}>데이터를 불러올 수 없습니다</ThemedText>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={() => lineName && loadStations(lineName)}
+            >
+              <ThemedText style={[styles.retryText, { color: lineColor }]}>다시 시도</ThemedText>
+            </TouchableOpacity>
           </View>
         ) : stations.length === 0 ? (
           <View style={styles.loadingBox}>
@@ -169,7 +205,6 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
                 const isAbove  = idx % 2 === 0;
                 const shortName = station.station_name.replace('역', '');
                 const dotSize  = isSel ? DOT_S : DOT_N;
-                const dotLeft  = idx * ITEM_W + (ITEM_W - dotSize) / 2;
                 const dotTop   = LINE_Y - dotSize / 2;
 
                 return (
@@ -373,4 +408,21 @@ const styles = StyleSheet.create({
     borderTopColor: '#F2F2F7',
   },
   hintText: { fontSize: 12, color: COLORS.textSub },
+
+  // Unsupported line banner
+  unsupportedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#FFF9F0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE5B4',
+  },
+  unsupportedText: { fontSize: 12, color: '#B37400', flex: 1 },
+
+  // Retry button
+  retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F2F2F7' },
+  retryText: { fontSize: 14, fontWeight: '700' },
 });
