@@ -24,10 +24,10 @@ jobs:
           node-version: '20'
           cache: npm
 
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+      - name: Set up Java 17
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> $GITHUB_ENV
+          echo "$JAVA_HOME_17_X64/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: npm ci
