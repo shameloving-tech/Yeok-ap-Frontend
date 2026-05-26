@@ -11,7 +11,7 @@ jobs:
   build:
     name: Android APK (Gradle Release)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Gradle 의존성 캐시 — package-lock 변경 시에만 무효화
+      # Gradle + NDK 빌드 캐시 — package-lock 변경 시에만 무효화
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -40,6 +40,38 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             gradle-${{ runner.os }}-
+
+      # react-native-reanimated C++ / NDK 빌드 결과물 캐시
+      - name: Cache NDK build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/react-native-reanimated/android/build
+            node_modules/react-native-worklets/android/build
+          key: ndk-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ndk-${{ runner.os }}-
+
+      # repo.maven.apache.org가 403 반환할 경우 repo1.maven.org로 폴백
+      - name: Configure Gradle Maven fallback
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/maven-fallback.gradle << 'EOF'
+          allprojects {
+            buildscript {
+              repositories {
+                maven { url 'https://repo1.maven.org/maven2/' }
+                google()
+                mavenCentral()
+              }
+            }
+            repositories {
+              maven { url 'https://repo1.maven.org/maven2/' }
+              google()
+              mavenCentral()
+            }
+          }
+          EOF
 
       - name: Expo Prebuild
         run: npx expo prebuild --platform android --clean
@@ -63,7 +95,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --build-cache
         env:
-          GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError
+          GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=4
 
       - name: Get version
         id: ver
