@@ -501,7 +501,10 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab} onPress={() => setTrainSheetOpen(true)}>
+      <TouchableOpacity
+        style={[styles.fab, { bottom: 30 + insets.bottom }]}
+        onPress={() => setTrainSheetOpen(true)}
+      >
         <Ionicons name="train" size={24} color="white" />
       </TouchableOpacity>
 
@@ -510,7 +513,7 @@ export default function HomeScreen() {
       <LineCongestionSheet
         visible={!!congestionLine}
         lineName={congestionLine}
-        stations={stationList}
+        liveStations={stationList}
         onClose={() => setCongestionLine(null)}
         onStationPress={(station) => { setCongestionLine(null); openStationDetail(station); }}
       />
