@@ -1,12 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import React, { useEffect, useRef } from 'react';
-import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import MapView, { Callout, Marker, Polyline } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LineCongestionSheet } from '@/components/LineCongestionSheet';
 import { ThemedText } from '@/components/themed-text';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor } from '@/constants/lines';
+
+// Android MapView는 Google Maps API 키가 필요합니다.
+// 키가 없으면 LineCongestionSheet(수평 노선도)로 폴백합니다.
+const hasGoogleMapsKey =
+  Platform.OS !== 'android' ||
+  !!(Constants.expoConfig?.android as any)?.config?.googleMaps?.apiKey;
 
 const LEVEL_COLOR: Record<string, string> = {
   '폭발': '#FF3B30',
@@ -32,6 +40,7 @@ type Props = {
 };
 
 export function LineMapModal({ visible, lineName, liveStations, onClose, onStationPress }: Props) {
+  // 모든 훅은 조건부 반환 전에 호출 (Rules of Hooks)
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
 
@@ -40,7 +49,7 @@ export function LineMapModal({ visible, lineName, liveStations, onClose, onStati
   );
 
   useEffect(() => {
-    if (!visible || lineStations.length === 0) return;
+    if (!hasGoogleMapsKey || !visible || lineStations.length === 0) return;
     const timer = setTimeout(() => {
       mapRef.current?.fitToCoordinates(
         lineStations.map(s => ({ latitude: s.latitude, longitude: s.longitude })),
@@ -49,6 +58,19 @@ export function LineMapModal({ visible, lineName, liveStations, onClose, onStati
     }, 400);
     return () => clearTimeout(timer);
   }, [visible, lineName, lineStations.length]);
+
+  // Google Maps API 키 없으면 수평 노선도로 폴백 (hooks 이후 조건부 반환 OK)
+  if (!hasGoogleMapsKey) {
+    return (
+      <LineCongestionSheet
+        visible={visible}
+        lineName={lineName}
+        liveStations={liveStations}
+        onClose={onClose}
+        onStationPress={onStationPress}
+      />
+    );
+  }
 
   if (!lineName) return null;
 
@@ -100,7 +122,6 @@ export function LineMapModal({ visible, lineName, liveStations, onClose, onStati
             latitudeDelta: 0.15,
             longitudeDelta: 0.15,
           }}
-          showsUserLocation
           showsMyLocationButton={false}
         >
           {/* 노선 연결선 */}

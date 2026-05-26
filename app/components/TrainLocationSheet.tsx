@@ -20,7 +20,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.72;
 
 const SUPPORTED_LINES = [
-  '2호선', '1호선', '3호선', '4호선', '5호선',
+  '1호선', '2호선', '3호선', '4호선', '5호선',
   '6호선', '7호선', '8호선', '9호선',
   '수인분당선', '경의중앙선', '공항철도', '신분당선',
 ];
@@ -58,6 +58,7 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
 
   return (
     <View style={card.wrap}>
+      {/* 상단: 편성번호 · 방향 · 잔여시간 */}
       <View style={card.row}>
         <View style={[card.badge, { borderColor: color }]}>
           <Ionicons name="train-outline" size={11} color={color} />
@@ -73,36 +74,55 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
         </View>
       </View>
 
-      {/* 4-station segment: 전전역 ─ 전역 ──🚂── 현재역 ─ 다음역 */}
-      <View style={card.seg}>
-        <View style={[card.dot, { backgroundColor: '#C7C7CC' }]} />
-        <View style={card.shortConn} />
-        <View style={[card.dot, { backgroundColor: '#8E8E93' }]} />
-        <View style={card.track}>
-          <View style={[card.filled, { flex: Math.max(0.001, progress), backgroundColor: color }]} />
-          <View style={[card.trainIcon, { backgroundColor: color }]}>
+      {/* 노선 구간: 역이름과 도트를 같은 컬럼에 배치해 정렬 */}
+      {/* 전전역 ─ 전역 ──🚂── 현재(도착)역 ─ 다다음역 */}
+      <View style={card.trackRow}>
+        {/* 전전역 */}
+        <View style={card.stCol}>
+          <ThemedText style={card.stLabel} numberOfLines={1}>
+            {train.prev_prev_station ?? ''}
+          </ThemedText>
+          <View style={[card.stDot, { backgroundColor: '#C7C7CC' }]} />
+        </View>
+
+        {/* 짧은 연결선 */}
+        <View style={[card.shortRail, { backgroundColor: '#D1D1D6' }]} />
+
+        {/* 전역 */}
+        <View style={card.stCol}>
+          <ThemedText style={card.stLabel} numberOfLines={1}>
+            {train.prev_station ?? '?'}
+          </ThemedText>
+          <View style={[card.stDot, { backgroundColor: '#8E8E93' }]} />
+        </View>
+
+        {/* 진행 구간 (열차 아이콘 포함) */}
+        <View style={card.progRail}>
+          <View style={[card.railFill, { flex: Math.max(0.001, progress), backgroundColor: color }]} />
+          <View style={[card.trainBall, { backgroundColor: color }]}>
             <Ionicons name="train" size={9} color="white" />
           </View>
-          <View style={[card.empty, { flex: Math.max(0.001, 1 - progress) }]} />
+          <View style={[card.railEmpty, { flex: Math.max(0.001, 1 - progress) }]} />
         </View>
-        <View style={[card.dot, { backgroundColor: color }]} />
-        <View style={[card.shortConn, { backgroundColor: '#E5E5EA' }]} />
-        <View style={[card.dot, { backgroundColor: '#C7C7CC' }]} />
-      </View>
 
-      <View style={card.names4}>
-        <ThemedText style={card.stName4} numberOfLines={1}>
-          {train.prev_prev_station ?? ''}
-        </ThemedText>
-        <ThemedText style={[card.stName4, { textAlign: 'center' }]} numberOfLines={1}>
-          {train.prev_station ?? '?'}
-        </ThemedText>
-        <ThemedText style={[card.stName4, { textAlign: 'center', color, fontWeight: '800' }]} numberOfLines={1}>
-          {train.next_station}
-        </ThemedText>
-        <ThemedText style={[card.stName4, { textAlign: 'right' }]} numberOfLines={1}>
-          {train.next_next_station ?? ''}
-        </ThemedText>
+        {/* 현재(도착)역 */}
+        <View style={card.stCol}>
+          <ThemedText style={[card.stLabel, { color, fontWeight: '800' }]} numberOfLines={1}>
+            {train.next_station}
+          </ThemedText>
+          <View style={[card.stDot, { backgroundColor: color }]} />
+        </View>
+
+        {/* 짧은 연결선 */}
+        <View style={[card.shortRail, { backgroundColor: '#E5E5EA' }]} />
+
+        {/* 다다음역 */}
+        <View style={card.stCol}>
+          <ThemedText style={card.stLabel} numberOfLines={1}>
+            {train.next_next_station ?? ''}
+          </ThemedText>
+          <View style={[card.stDot, { backgroundColor: '#C7C7CC' }]} />
+        </View>
       </View>
 
       <ThemedText style={card.status} numberOfLines={1}>{train.status_msg}</ThemedText>
@@ -118,7 +138,7 @@ export function TrainLocationSheet({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const [line,    setLine]    = useState('2호선');
+  const [line,    setLine]    = useState('1호선');
   const [trains,  setTrains]  = useState<Train[]>([]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(false);
@@ -370,7 +390,7 @@ const card = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFEFEF',
   },
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 18, gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1.5, borderRadius: 10,
@@ -383,19 +403,54 @@ const card = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10,
   },
   timeText: { fontSize: 13, fontWeight: '800', color: COLORS.textMain },
-  seg: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 2 },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#C7C7CC' },
-  track: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 20 },
-  filled: { height: 4, borderRadius: 2 },
-  trainIcon: {
+
+  // ── 역 트랙 레이아웃 (도트와 이름이 같은 컬럼) ──
+  trackRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',   // 모든 요소를 하단 기준 정렬
+    marginBottom: 10,
+  },
+  // 역 컬럼: 이름(위) + 도트(아래)
+  stCol: {
+    width: 44,
+    alignItems: 'center',
+    gap: 5,
+  },
+  stLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.textSub,
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+  stDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  // 짧은 연결선: marginBottom으로 도트 중심(5px)에 맞춤
+  shortRail: {
+    width: 10,
+    height: 3,
+    borderRadius: 1.5,
+    marginBottom: 3.5,   // (10-3)/2 = 3.5 → 도트 중심과 수평 정렬
+  },
+  // 진행 구간: height=10(도트와 동일)으로 바닥 정렬 시 중심이 일치
+  progRail: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 10,
+    overflow: 'visible',  // 열차 아이콘(22px)이 위아래로 넘쳐도 표시
+  },
+  railFill: { height: 4, borderRadius: 2 },
+  trainBall: {
     width: 22, height: 22, borderRadius: 11,
     justifyContent: 'center', alignItems: 'center',
     marginHorizontal: 1, zIndex: 1,
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
   },
-  empty: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2 },
-  shortConn: { width: 20, height: 3, backgroundColor: '#D1D1D6', borderRadius: 1.5 },
-  names4: { flexDirection: 'row', marginBottom: 6, marginTop: 4 },
-  stName4: { flex: 1, fontSize: 11, color: COLORS.textSub, fontWeight: '600' },
-  status: { fontSize: 11, color: COLORS.textSub, textAlign: 'center' },
+  railEmpty: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2 },
+
+  status: { fontSize: 11, color: COLORS.textSub, textAlign: 'center', marginTop: 4 },
 });
