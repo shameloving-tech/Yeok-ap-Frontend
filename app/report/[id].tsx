@@ -23,6 +23,7 @@ import { ThemedText } from '@/components/themed-text';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor, getLineNumber } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
+import { getDeviceToken, getOrCreateNickname } from '@/utils/deviceToken';
 
 const LIKED_REPORTS_KEY = 'liked_reports';
 const FLAGGED_REPORTS_KEY = 'flagged_reports';
@@ -50,6 +51,8 @@ export default function ReportDetailScreen() {
   const inputRef = useRef<TextInput>(null);
 
   const [myNickname, setMyNickname] = useState('');
+  const [myDeviceToken, setMyDeviceToken] = useState('');
+  const [myReportIds, setMyReportIds] = useState<number[]>([]);
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
@@ -74,10 +77,16 @@ export default function ReportDetailScreen() {
 
   useEffect(() => {
     const init = async () => {
-      const nick = (await AsyncStorage.getItem('user_nickname')) || '';
+      const nick = await getOrCreateNickname();
       setMyNickname(nick);
-      const rawFlags = await AsyncStorage.getItem(FLAGGED_COMMENTS_KEY);
+      const token = await getDeviceToken();
+      setMyDeviceToken(token);
+      const [rawFlags, rawIds] = await Promise.all([
+        AsyncStorage.getItem(FLAGGED_COMMENTS_KEY),
+        AsyncStorage.getItem('my_report_ids'),
+      ]);
       if (rawFlags) setFlaggedComments(new Set(JSON.parse(rawFlags)));
+      if (rawIds) setMyReportIds(JSON.parse(rawIds));
     };
     init();
     fetchReport();
@@ -142,7 +151,7 @@ export default function ReportDetailScreen() {
       {
         text: '삭제', style: 'destructive',
         onPress: async () => {
-          await fetch(`${BASE_URL}/reports/${id}?nickname=${encodeURIComponent(myNickname)}`, { method: 'DELETE' });
+          await fetch(`${BASE_URL}/reports/${id}?device_token=${encodeURIComponent(myDeviceToken)}`, { method: 'DELETE' });
           Toast.show({ type: 'success', text1: '삭제되었습니다' });
           router.back();
         },
@@ -182,7 +191,7 @@ export default function ReportDetailScreen() {
     const res = await fetch(`${BASE_URL}/reports/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: { content: editPostContent.trim(), nickname: myNickname } }),
+      body: JSON.stringify({ report: { content: editPostContent.trim(), device_token: myDeviceToken } }),
     });
     if (res.ok) {
       setReport((prev: any) => ({ ...prev, content: editPostContent.trim() }));
@@ -193,7 +202,7 @@ export default function ReportDetailScreen() {
 
   // 댓글 디룰 메뉴
   const openCommentMenu = (item: any) => {
-    setCommentMenu({ id: item.id, isOwn: item.nickname === myNickname, content: item.content });
+    setCommentMenu({ id: item.id, isOwn: item.device_token === myDeviceToken, content: item.content });
   };
 
   // 댓글 삭제
@@ -206,7 +215,7 @@ export default function ReportDetailScreen() {
         text: '삭제', style: 'destructive',
         onPress: async () => {
           if (!target) return;
-          await fetch(`${BASE_URL}/reports/${id}/comments/${target.id}?nickname=${encodeURIComponent(myNickname)}`, { method: 'DELETE' });
+          await fetch(`${BASE_URL}/reports/${id}/comments/${target.id}?device_token=${encodeURIComponent(myDeviceToken)}`, { method: 'DELETE' });
           setComments(prev => prev.filter(c => c.id !== target.id));
           if (report) setReport((r: any) => ({ ...r, comments_count: Math.max(0, (r.comments_count || 1) - 1) }));
           Toast.show({ type: 'success', text1: '삭제되었습니다' });
@@ -250,7 +259,7 @@ export default function ReportDetailScreen() {
     const res = await fetch(`${BASE_URL}/reports/${id}/comments/${editCommentTarget.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ comment: { content: editCommentContent.trim(), nickname: myNickname } }),
+      body: JSON.stringify({ comment: { content: editCommentContent.trim(), device_token: myDeviceToken } }),
     });
     if (res.ok) {
       setComments(prev => prev.map(c => c.id === editCommentTarget.id ? { ...c, content: editCommentContent.trim() } : c));
@@ -264,10 +273,11 @@ export default function ReportDetailScreen() {
     setCommentSubmitting(true);
     try {
       const nickname = myNickname || '익명';
+      const token = await getDeviceToken();
       const res = await fetch(`${BASE_URL}/reports/${id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment: { content: commentText.trim(), nickname } }),
+        body: JSON.stringify({ comment: { content: commentText.trim(), nickname, device_token: token } }),
       });
       if (res.ok) {
         const newComment = await res.json();
@@ -283,7 +293,8 @@ export default function ReportDetailScreen() {
     }
   };
 
-  const isMyPost = report?.nickname === myNickname;
+  const isMyPost = (!!myDeviceToken && !!report?.device_token && report.device_token === myDeviceToken)
+    || myReportIds.includes(Number(id));
   const [title, ...bodyLines] = (report?.content || '').split('\n');
   const body = bodyLines.join('\n');
 

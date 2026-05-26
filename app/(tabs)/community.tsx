@@ -25,13 +25,14 @@ import { ThemedText } from '@/components/themed-text';
 import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor, getLineNumber } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
+import { getDeviceToken, getOrCreateNickname } from '@/utils/deviceToken';
 
 const { width } = Dimensions.get('window');
 
 const SUBWAY_LINES = [
   '전체', '1호선', '2호선', '3호선', '4호선', '5호선', '6호선', '7호선', '8호선', '9호선',
   '수인분당선', '경의중앙선', '공항철도', '신분당선', '경춘선', '우이신설선', '신림선',
-  '김포골드라인', '경강선', '서해선', '인체1호선', '인체2호선', 'GTX-A',
+  '김포골드라인', '경강선', '서해선', '인천1호선', '인천2호선', 'GTX-A',
 ];
 
 const LIKED_REPORTS_KEY = 'liked_reports';
@@ -168,11 +169,12 @@ export default function CommunityScreen() {
     if (!commentText.trim() || commentsReportId === null) return;
     setCommentSubmitting(true);
     try {
-      const nickname = (await AsyncStorage.getItem('user_nickname')) || '익명';
+      const nickname = await getOrCreateNickname();
+      const token = await getDeviceToken();
       const res = await fetch(`${BASE_URL}/reports/${commentsReportId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment: { content: commentText.trim(), nickname } }),
+        body: JSON.stringify({ comment: { content: commentText.trim(), nickname, device_token: token } }),
       });
       if (res.ok) {
         const newComment = await res.json();
@@ -217,14 +219,23 @@ export default function CommunityScreen() {
       formData.append('report[direction]', direction);
       formData.append('report[content]', fullContent);
       formData.append('report[status]', '혼잡');
-      const nickname = (await AsyncStorage.getItem('user_nickname')) || '익명';
+      const nickname = await getOrCreateNickname();
+      const token = await getDeviceToken();
       formData.append('report[nickname]', nickname);
+      formData.append('report[device_token]', token);
       if (image) {
         const filename = image.split('/').pop() || 'image.jpg';
         formData.append('report[image]', { uri: image, name: filename, type: 'image/jpeg' } as any);
       }
       const response = await fetch(`${BASE_URL}/reports`, { method: 'POST', body: formData });
       if (response.ok) {
+        const result = await response.json();
+        if (result.id) {
+          const raw = await AsyncStorage.getItem('my_report_ids');
+          const ids: number[] = raw ? JSON.parse(raw) : [];
+          ids.push(result.id);
+          await AsyncStorage.setItem('my_report_ids', JSON.stringify(ids));
+        }
         setIsPostModalOpen(false);
         setImage(null); setTitle(''); setContent(''); setStation(''); setDirection(''); setPostLine('');
         await AsyncStorage.removeItem(REPORTS_CACHE_KEY(selectedLine));
@@ -653,7 +664,7 @@ const styles = StyleSheet.create({
   statText: { fontSize: 13, color: COLORS.textSub, fontWeight: '600' },
   statTextActive: { color: COLORS.primary },
 
-  fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 20, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', elevation: 8 },
+  fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, elevation: 8 },
 
   modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#F8F9FB', zIndex: 1000 },
   modalHeader: {
