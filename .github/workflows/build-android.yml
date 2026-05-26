@@ -41,6 +41,27 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      # repo.maven.apache.org가 403 반환할 경우 repo1.maven.org로 폴백
+      - name: Configure Gradle Maven fallback
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/maven-fallback.gradle << 'EOF'
+          allprojects {
+            buildscript {
+              repositories {
+                maven { url 'https://repo1.maven.org/maven2/' }
+                google()
+                mavenCentral()
+              }
+            }
+            repositories {
+              maven { url 'https://repo1.maven.org/maven2/' }
+              google()
+              mavenCentral()
+            }
+          }
+          EOF
+
       - name: Expo Prebuild
         run: npx expo prebuild --platform android --clean
         env:
