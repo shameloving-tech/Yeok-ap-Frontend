@@ -76,7 +76,8 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
         const worst = data.findIndex(s => s.congestion_level === '폭발' || s.congestion_level === '혼잡');
         if (worst > 3) {
           setTimeout(() => {
-            scrollRef.current?.scrollTo({ x: (worst - 2) * ITEM_W, animated: true });
+            // PAD_H(좌측 패딩)를 더해야 실제 스크롤 위치와 일치
+            scrollRef.current?.scrollTo({ x: PAD_H + (worst - 2) * ITEM_W, animated: true });
           }, 400);
         }
       })
@@ -214,9 +215,9 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
                     onPress={() => setSelected(isSel ? null : station.station_name)}
                     activeOpacity={0.7}
                   >
-                    {/* 역명 위 */}
+                    {/* 역명 위 — 선택된 점이 커질 때 라벨이 겹치지 않도록 dotSize 기준으로 계산 */}
                     {isAbove && (
-                      <View style={[styles.namePlate, { bottom: MAP_H - LINE_Y + DOT_N / 2 + 6 }]}>
+                      <View style={[styles.namePlate, { bottom: MAP_H - LINE_Y + dotSize / 2 + 6 }]}>
                         <ThemedText
                           style={[styles.stName, isSel && { color: lineColor, fontWeight: '800' }]}
                           numberOfLines={2}

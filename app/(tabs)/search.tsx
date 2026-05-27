@@ -169,6 +169,7 @@ export default function RouteScreen() {
     setSugLoading(true);
     try {
       const res = await fetch(`${BASE_URL}/api/v1/stations?q=${encodeURIComponent(q.trim())}`);
+      if (!res.ok) { setSuggestions([]); return; }
       const data = await res.json();
       const groupMap = new Map<string, GroupedStation>();
       const groupOrder: string[] = [];
@@ -218,8 +219,8 @@ export default function RouteScreen() {
     setToStation({ id: 0, station_name: r.to, line: '' });
     setActiveField(null);
     setSuggestions([]);
-    // 바로 검색
-    setTimeout(() => searchRoute('fastest', r.from, r.to), 50);
+    // 바로 검색 (현재 선택된 mode 사용)
+    setTimeout(() => searchRoute(mode, r.from, r.to), 50);
   };
 
   const swapStations = () => {
@@ -243,13 +244,15 @@ export default function RouteScreen() {
     setRouteError('');
     setRouteResult(null);
     setActiveField(null);
-    // 새 경로 검색 시 알림 초기화
+    // 새 경로 검색 시 이전 알림 취소 및 초기화
+    if (notifId) cancelNotification(notifId);
     setNotifScheduledMins(null);
     setNotifId(null);
     try {
       const res = await fetch(
         `${BASE_URL}/api/v1/stations/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&mode=${overrideMode ?? mode}`
       );
+      if (!res.ok) { setRouteError('경로를 찾을 수 없습니다.'); return; }
       const data = await res.json();
       if (data.error) { setRouteError(data.error); }
       else {
@@ -267,7 +270,7 @@ export default function RouteScreen() {
     const from = fromStation?.station_name || fromText.trim();
     const to = toStation?.station_name || toText.trim();
     if (!from || !to) return;
-    if (!routeResult && !routeError) return;
+    if (!routeResult) return; // 이전 검색 결과 있을 때만 모드 변경 재검색
     searchRoute(mode);
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -394,9 +397,9 @@ export default function RouteScreen() {
             <Ionicons name="time-outline" size={13} color={COLORS.textSub} />
             <ThemedText style={styles.recentHeaderText}>최근 검색</ThemedText>
           </View>
-          {recentRoutes.slice(0, 5).map((r, i) => (
+          {recentRoutes.slice(0, 5).map((r) => (
             <TouchableOpacity
-              key={i}
+              key={`${r.from}-${r.to}-${r.usedAt}`}
               style={styles.recentRouteItem}
               onPress={() => applyRecentRoute(r)}
             >

@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { Link, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -57,20 +57,36 @@ export default function SettingsScreen() {
   const [nickname, setNickname] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      const nick = await getOrCreateNickname();
-      setNickname(nick);
-      const img = await AsyncStorage.getItem('user_profile_image');
-      if (img) setProfileImage(img);
-    };
-    load();
-  }, []);
+  // 프로필 수정 후 돌아올 때도 최신 정보 반영 (useFocusEffect)
+  useFocusEffect(
+    useCallback(() => {
+      const load = async () => {
+        const nick = await getOrCreateNickname();
+        setNickname(nick);
+        const img = await AsyncStorage.getItem('user_profile_image');
+        setProfileImage(img);
+      };
+      load();
+    }, [])
+  );
 
   const handleLogout = () =>
-    Alert.alert('로그아웃', '정말 로그아웃 하시겠어요?', [
+    Alert.alert('로그아웃', '정말 로그아웃 하시겠어요?\n즐겨찾기, 최근 기록이 모두 삭제됩니다.', [
       { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: () => {} },
+      {
+        text: '로그아웃',
+        style: 'destructive',
+        onPress: async () => {
+          await AsyncStorage.multiRemove([
+            'user_nickname', 'user_profile_image',
+            'liked_reports', 'recent_stations', 'favorite_stations',
+            'followed_lines', 'favorite_routes', 'recent_routes_v2',
+            'my_report_ids', 'device_token',
+          ]);
+          setNickname('');
+          setProfileImage(null);
+        },
+      },
     ]);
 
   return (

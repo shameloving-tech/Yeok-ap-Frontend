@@ -92,6 +92,7 @@ export default function CommunityScreen() {
   };
 
   const loadReports = async () => {
+    setLoading(true);
     const cached = await AsyncStorage.getItem(REPORTS_CACHE_KEY(selectedLine));
     if (cached) {
       setReports(JSON.parse(cached));
@@ -225,7 +226,10 @@ export default function CommunityScreen() {
       formData.append('report[device_token]', token);
       if (image) {
         const filename = image.split('/').pop() || 'image.jpg';
-        formData.append('report[image]', { uri: image, name: filename, type: 'image/jpeg' } as any);
+        const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+        const mimeMap: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
+        const mimeType = mimeMap[ext] ?? 'image/jpeg';
+        formData.append('report[image]', { uri: image, name: filename, type: mimeType } as any);
       }
       const response = await fetch(`${BASE_URL}/reports`, { method: 'POST', body: formData });
       if (response.ok) {
@@ -248,6 +252,7 @@ export default function CommunityScreen() {
       }
     } catch (e) {
       console.error(e);
+      Toast.show({ type: 'error', text1: '오류', text2: '네트워크 오류가 발생했습니다.' });
     } finally {
       setSubmitting(false);
     }
@@ -276,7 +281,9 @@ export default function CommunityScreen() {
           )}
         </View>
         <ThemedText style={styles.feedTitle} numberOfLines={1}>{item.content.split('\n')[0]}</ThemedText>
-        <ThemedText style={styles.feedBody} numberOfLines={2}>{item.content}</ThemedText>
+        {item.content.includes('\n') && (
+          <ThemedText style={styles.feedBody} numberOfLines={2}>{item.content.split('\n').slice(1).join('\n')}</ThemedText>
+        )}
         {item.image_url ? (
           <Image
             source={{ uri: fixImageUrl(item.image_url) ?? undefined }}
@@ -339,7 +346,7 @@ export default function CommunityScreen() {
         <View style={styles.loadingContainer}><ActivityIndicator color={COLORS.primary} /></View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.popularScroll}>
-          {reports.slice(0, 3).map((item: any) => {
+          {[...reports].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0)).slice(0, 3).map((item: any) => {
             const isLiked = likedReports.has(item.id);
             return (
               <TouchableOpacity key={item.id} activeOpacity={0.85} onPress={() => router.push(`/report/${item.id}`)} style={styles.popularCard}>
@@ -421,10 +428,13 @@ export default function CommunityScreen() {
         <Ionicons name="pencil" size={24} color="white" />
       </TouchableOpacity>
 
-      {/* ── 제보 작성 모달 ── */}
-      {isPostModalOpen && (
-        <View style={styles.modalOverlay}>
-          <SafeAreaView style={{ flex: 1 }}>
+      {/* ── 제보 작성 모달 — Modal 사용으로 Android 뒤로가기 처리 ── */}
+      <Modal
+        visible={isPostModalOpen}
+        animationType="slide"
+        onRequestClose={() => setIsPostModalOpen(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F9FB' }}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setIsPostModalOpen(false)} style={styles.modalHeaderBtn}>
                 <Ionicons name="close" size={24} color={COLORS.textMain} />
@@ -478,7 +488,7 @@ export default function CommunityScreen() {
 
               <View style={styles.noticeBanner}>
                 <Ionicons name="information-circle-outline" size={18} color={COLORS.textSub} style={{ marginRight: 8, flexShrink: 0 }} />
-                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쿈감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
+                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쾌감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
               </View>
 
               <ThemedText style={styles.formSectionLabel}>제보 내용</ThemedText>
@@ -493,7 +503,7 @@ export default function CommunityScreen() {
               />
               <TextInput
                 style={styles.contentInput}
-                placeholder={"제보 내용을 입력해 주세요.\n(예: 3번 출구 에스컈레이터 고장, 열차 지연 등)"}
+                placeholder={"제보 내용을 입력해 주세요.\n(예: 3번 출구 에스컬레이터 고장, 열차 지연 등)"}
                 placeholderTextColor={COLORS.textSub}
                 multiline
                 textAlignVertical="top"
@@ -533,8 +543,7 @@ export default function CommunityScreen() {
               <View style={{ height: 40 }} />
             </ScrollView>
           </SafeAreaView>
-        </View>
-      )}
+      </Modal>
 
       {/* ── 댓글 바텀시트 ── */}
       <Modal

@@ -126,11 +126,16 @@ export function TrainLocationSheet({
   const [secs,       setSecs]       = useState<Record<string, number>>({});
   const fetchTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
   const countTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortRef    = useRef<AbortController | null>(null);  // 노선 전환 시 구버전 fetch 취소용
 
   const loadTrains = useCallback(async (l: string, silent = false) => {
+    // 이전 진행 중인 요청 취소 (구버전 응답이 새 데이터 덮어쓰는 것 방지)
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     if (!silent) setLoading(true);
     setError(false);
-    const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     try {
       const res = await fetch(
@@ -154,25 +159,31 @@ export function TrainLocationSheet({
         });
         return next;
       });
-    } catch (e) {
+    } catch (e: any) {
       clearTimeout(timeout);
+      if (e?.name === 'AbortError') return;  // 취소된 요청 — 무시
       if (!silent) { setError(true); console.error('TrainLocationSheet:', e); }
     } finally {
-      if (!silent) setLoading(false);
+      // 현재 요청이 취소되지 않은 경우에만 로딩 상태 해제
+      if (!ctrl.signal.aborted && !silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (!visible) return;
     setTrains([]);
+    setSecs({});
     setError(false);
     loadTrains(line);
-    fetchTimer.current = setInterval(() => loadTrains(line), FETCH_MS);
-    return () => { if (fetchTimer.current) clearInterval(fetchTimer.current); };
+    fetchTimer.current = setInterval(() => loadTrains(line, true), FETCH_MS);
+    return () => {
+      if (fetchTimer.current) { clearInterval(fetchTimer.current); fetchTimer.current = null; }
+    };
   }, [visible, line, loadTrains]);
 
   useEffect(() => {
     if (!visible) return;
+    // 노선 전환 시 이전 countTimer도 반드시 재시작 (line 의존성 필수)
     countTimer.current = setInterval(() => {
       setSecs(prev => {
         const next: Record<string, number> = {};
@@ -180,8 +191,10 @@ export function TrainLocationSheet({
         return next;
       });
     }, 1000);
-    return () => { if (countTimer.current) clearInterval(countTimer.current); };
-  }, [visible]);
+    return () => {
+      if (countTimer.current) { clearInterval(countTimer.current); countTimer.current = null; }
+    };
+  }, [visible, line]);  // ← line 추가: 노선 변경 시 카운터 재시작
 
   const color = getLineColor(line);
   const isLimited = LIMITED_LINES.has(line);
@@ -196,8 +209,8 @@ export function TrainLocationSheet({
   // 당겨서 새로고침 — 기존 목록 유지, 카운트다운 보존
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadTrains(line, true);
-    setRefreshing(false);
+    try { await loadTrains(line, true); }
+    finally { setRefreshing(false); }
   }, [line, loadTrains]);
 
   return (
