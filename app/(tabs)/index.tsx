@@ -181,7 +181,7 @@ export default function HomeScreen() {
       ))).filter((t: any) => t.trim() !== line.name).slice(0, 5);
       let msg = worstStation.congestion_level ? '원활하게 운행 중입니다' : '혼잡도 정보 없음';
       if (worstStation.congestion_level === '폭발' || worstStation.congestion_level === '혼잡') {
-        msg = `${worstStation.station_name.replace('역', '')} 매우 혼잡`;
+        msg = `${worstStation.station_name.replace(/역$/, '')} 매우 혼잡`;
       } else if (worstStation.arrival_message) {
         msg = worstStation.arrival_message;
       }
