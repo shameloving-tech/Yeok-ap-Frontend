@@ -406,7 +406,7 @@ export default function CommunityScreen() {
 
       {/* 제보 FAB */}
       <TouchableOpacity
-        style={[styles.fab, { bottom: 30 + insets.bottom }]}
+        style={[styles.fab, { bottom: 16 }]}
         onPress={() => setIsPostModalOpen(true)}
       >
         <Ionicons name="pencil" size={24} color="white" />

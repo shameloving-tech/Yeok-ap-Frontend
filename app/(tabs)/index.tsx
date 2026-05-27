@@ -502,7 +502,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       <TouchableOpacity
-        style={[styles.fab, { bottom: 30 + insets.bottom }]}
+        style={[styles.fab, { bottom: 16 }]}
         onPress={() => setTrainSheetOpen(true)}
       >
         <Ionicons name="train" size={24} color="white" />

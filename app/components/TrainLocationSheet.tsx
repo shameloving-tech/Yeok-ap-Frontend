@@ -91,7 +91,7 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
         {/* 전역 */}
         <View style={card.stCol}>
           <ThemedText style={card.stLabel} numberOfLines={1}>
-            {train.prev_station ?? '?'}
+            {train.prev_station ?? ''}
           </ThemedText>
           <View style={[card.stDot, { backgroundColor: '#8E8E93' }]} />
         </View>

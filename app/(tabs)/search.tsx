@@ -71,15 +71,15 @@ export default function RouteScreen() {
     try {
       const res = await fetch(`${BASE_URL}/api/v1/stations?q=${encodeURIComponent(q.trim())}`);
       const data = await res.json();
-      // Deduplicate: treat "강남" and "강남역" as same station
+      // 역명+노선 조합으로 중복 제거 (같은 역명이라도 다른 노선이면 모두 표시)
       const seen = new Set<string>();
       const deduped = (data as Station[]).filter(s => {
-        const key = s.station_name.replace(/역$/, '');
+        const key = `${s.station_name.replace(/역$/, '')}_${s.line}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
-      setSuggestions(deduped.slice(0, 8));
+      setSuggestions(deduped.slice(0, 12));
     } catch { setSuggestions([]); }
     finally { setSugLoading(false); }
   }, []);
