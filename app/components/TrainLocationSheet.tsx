@@ -118,16 +118,17 @@ export function TrainLocationSheet({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const [line,    setLine]    = useState('2호선');
-  const [trains,  setTrains]  = useState<Train[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(false);
-  const [secs,    setSecs]    = useState<Record<string, number>>({});
+  const [line,       setLine]       = useState('2호선');
+  const [trains,     setTrains]     = useState<Train[]>([]);
+  const [loading,    setLoading]    = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error,      setError]      = useState(false);
+  const [secs,       setSecs]       = useState<Record<string, number>>({});
   const fetchTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
   const countTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const loadTrains = useCallback(async (l: string) => {
-    setLoading(true);
+  const loadTrains = useCallback(async (l: string, silent = false) => {
+    if (!silent) setLoading(true);
     setError(false);
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -138,20 +139,26 @@ export function TrainLocationSheet({
       );
       clearTimeout(timeout);
       if (!res.ok) {
-        setError(true);
+        if (!silent) setError(true);
         return;
       }
       const data: Train[] = await res.json();
       setTrains(data.slice(0, MAX_TRAINS));
-      const map: Record<string, number> = {};
-      data.forEach(t => { map[t.train_no] = t.barvlDt; });
-      setSecs(map);
+      // 카운트다운 스마트 머지: 로컬 카운트가 API값보다 낮으면(더 정확) 유지,
+      // 새 열차이거나 API가 더 작으면 API값으로 업데이트
+      setSecs(prev => {
+        const next: Record<string, number> = {};
+        data.forEach(t => {
+          const cur = prev[t.train_no];
+          next[t.train_no] = cur !== undefined ? Math.min(cur, t.barvlDt) : t.barvlDt;
+        });
+        return next;
+      });
     } catch (e) {
       clearTimeout(timeout);
-      setError(true);
-      console.error('TrainLocationSheet:', e);
+      if (!silent) { setError(true); console.error('TrainLocationSheet:', e); }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -179,10 +186,19 @@ export function TrainLocationSheet({
   const color = getLineColor(line);
   const isLimited = LIMITED_LINES.has(line);
 
+  // 에러 상태에서 재시도 — 목록을 지우고 처음부터 로드
   const handleRetry = () => {
     setTrains([]);
+    setSecs({});
     loadTrains(line);
   };
+
+  // 당겨서 새로고침 — 기존 목록 유지, 카운트다운 보존
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadTrains(line, true);
+    setRefreshing(false);
+  }, [line, loadTrains]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -239,8 +255,8 @@ export function TrainLocationSheet({
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
-                refreshing={loading && trains.length > 0}
-                onRefresh={handleRetry}
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
                 colors={[color]}
                 tintColor={color}
               />
