@@ -3,7 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   ActivityIndicator,
   ScrollView,
@@ -23,6 +24,7 @@ import { APP_COLORS as COLORS } from '@/constants/theme';
 import { LINE_CONFIG, getLineColor, getLineNumber } from '@/constants/lines';
 import { useSubwayDataContext } from '@/contexts/SubwayDataContext';
 import { FavoriteStation, getFavoriteStations } from '@/utils/favorites';
+import { FavoriteRoute, getFavoriteRoutes } from '@/utils/favoriteRoutes';
 
 const { width } = Dimensions.get('window');
 
@@ -59,6 +61,7 @@ export default function HomeScreen() {
   const [detailStation, setDetailStation] = useState<any>(null);
   const [trainSheetOpen, setTrainSheetOpen] = useState(false);
   const [congestionLine, setCongestionLine] = useState<string | null>(null);
+  const [favRoutes, setFavRoutes] = useState<FavoriteRoute[]>([]);
 
   const openStationDetail = (station: any) => setDetailStation(station);
 
@@ -67,15 +70,22 @@ export default function HomeScreen() {
     requestLocationPermission();
   }, []);
 
+  // 다른 탭에서 경로 저장 후 돌아왔을 때 최신 데이터 반영
+  useFocusEffect(useCallback(() => {
+    getFavoriteRoutes().then(setFavRoutes);
+  }, []));
+
   const loadPreferences = async () => {
-    const [savedLines, savedRecent, savedFavs] = await Promise.all([
+    const [savedLines, savedRecent, savedFavs, savedFavRoutes] = await Promise.all([
       AsyncStorage.getItem('followed_lines'),
       AsyncStorage.getItem(RECENT_STATIONS_KEY),
       getFavoriteStations(),
+      getFavoriteRoutes(),
     ]);
     if (savedLines) setFollowedLines(JSON.parse(savedLines));
     if (savedRecent) setRecentStations(JSON.parse(savedRecent));
     setFavoriteStations(savedFavs);
+    setFavRoutes(savedFavRoutes);
   };
 
   const requestLocationPermission = async () => {
@@ -280,6 +290,47 @@ export default function HomeScreen() {
             </View>
           </LinearGradient>
         </View>
+
+        {/* ── 즐겨찾기 경로 ── */}
+        {favRoutes.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText style={styles.sectionTitle}>저장된 경로</ThemedText>
+              <ThemedText style={styles.sectionSub}>{favRoutes.length}개</ThemedText>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentList}>
+              {favRoutes.map((r) => {
+                const hour = new Date().getHours();
+                const isCommute = (r.label === '출근' && hour >= 6 && hour < 10) ||
+                                  (r.label === '퇴근' && hour >= 17 && hour < 22);
+                return (
+                  <TouchableOpacity
+                    key={r.id}
+                    style={[styles.routeCard, isCommute && styles.routeCardCommute]}
+                    onPress={() => router.push({ pathname: '/(tabs)/search', params: { from: r.from, to: r.to } })}
+                  >
+                    {r.label && (
+                      <View style={[styles.routeLabel, isCommute && styles.routeLabelCommute]}>
+                        <ThemedText style={[styles.routeLabelText, isCommute && { color: 'white' }]}>
+                          {r.label === '출근' ? '🏢' : r.label === '퇴근' ? '🏠' : '📍'} {r.label}
+                        </ThemedText>
+                      </View>
+                    )}
+                    <ThemedText style={styles.routeFrom} numberOfLines={1}>{r.from}</ThemedText>
+                    <View style={styles.routeArrow}>
+                      <View style={styles.routeArrowLine} />
+                      <Ionicons name="chevron-forward" size={10} color={COLORS.textSub} />
+                    </View>
+                    <ThemedText style={styles.routeTo} numberOfLines={1}>{r.to}</ThemedText>
+                    {r.totalMin && (
+                      <ThemedText style={styles.routeMin}>{r.totalMin}분</ThemedText>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         {favoriteStationsWithStatus.length > 0 && (
           <View style={styles.section}>
@@ -588,6 +639,40 @@ const styles = StyleSheet.create({
   emptyRecent: { alignItems: 'center', paddingVertical: 24, gap: 8 },
   emptyRecentText: { fontSize: 14, color: COLORS.textSub },
   recentList: { paddingRight: 20 },
+  // 저장된 경로 카드
+  routeCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 16,
+    marginRight: 12,
+    width: 148,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  routeCardCommute: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '08',
+  },
+  routeLabel: {
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    paddingHorizontal: 7, paddingVertical: 3,
+    marginBottom: 10,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  routeLabelCommute: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  routeLabelText: { fontSize: 11, fontWeight: '700', color: COLORS.textSub },
+  routeFrom: { fontSize: 14, fontWeight: '800', color: COLORS.textMain, marginBottom: 4 },
+  routeArrow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  routeArrowLine: { flex: 1, height: 1, backgroundColor: COLORS.border, marginRight: 2 },
+  routeTo: { fontSize: 14, fontWeight: '800', color: COLORS.textMain, marginBottom: 6 },
+  routeMin: { fontSize: 12, color: COLORS.primary, fontWeight: '700' },
+
   recentCard: {
     backgroundColor: 'white',
     borderRadius: 20,
