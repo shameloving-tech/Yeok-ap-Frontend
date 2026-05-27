@@ -20,7 +20,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.72;
 
 const SUPPORTED_LINES = [
-  '2호선', '1호선', '3호선', '4호선', '5호선',
+  '1호선', '2호선', '3호선', '4호선', '5호선',
   '6호선', '7호선', '8호선', '9호선',
   '수인분당선', '경의중앙선', '공항철도', '신분당선',
 ];
@@ -95,7 +95,7 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
           {train.prev_prev_station ?? ''}
         </ThemedText>
         <ThemedText style={[card.stName4, { textAlign: 'center' }]} numberOfLines={1}>
-          {train.prev_station ?? '?'}
+          {train.prev_station ?? ''}
         </ThemedText>
         <ThemedText style={[card.stName4, { textAlign: 'center', color, fontWeight: '800' }]} numberOfLines={1}>
           {train.next_station}
@@ -118,7 +118,7 @@ export function TrainLocationSheet({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const [line,       setLine]       = useState('2호선');
+  const [line,       setLine]       = useState('1호선');
   const [trains,     setTrains]     = useState<Train[]>([]);
   const [loading,    setLoading]    = useState(false);
   const [refreshing, setRefreshing] = useState(false);
