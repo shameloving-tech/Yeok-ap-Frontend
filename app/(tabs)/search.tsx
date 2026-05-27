@@ -21,6 +21,7 @@ import { BASE_URL } from '@/constants/config';
 import { useSubwayDataContext } from '@/contexts/SubwayDataContext';
 
 type Station = { id: number; station_name: string; line: string };
+type GroupedStation = { station_name: string; lines: { id: number; line: string }[] };
 type RouteStep = { type: string; station: string; line: string; prev_line?: string };
 type RouteResult = {
   from: string; to: string; total_min: number;
@@ -55,7 +56,7 @@ export default function RouteScreen() {
   const [fromStation, setFromStation] = useState<Station | null>(null);
   const [toStation, setToStation] = useState<Station | null>(null);
   const [activeField, setActiveField] = useState<'from' | 'to' | null>(null);
-  const [suggestions, setSuggestions] = useState<Station[]>([]);
+  const [suggestions, setSuggestions] = useState<GroupedStation[]>([]);
   const [sugLoading, setSugLoading] = useState(false);
   const [mode, setMode] = useState<'fastest' | 'min_transfers'>('fastest');
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
@@ -71,15 +72,21 @@ export default function RouteScreen() {
     try {
       const res = await fetch(`${BASE_URL}/api/v1/stations?q=${encodeURIComponent(q.trim())}`);
       const data = await res.json();
-      // Deduplicate: treat "강남" and "강남역" as same station
-      const seen = new Set<string>();
-      const deduped = (data as Station[]).filter(s => {
-        const key = s.station_name.replace(/역$/, '');
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
+      // 역명 기준으로 그룹화 — 같은 역명의 여러 노선을 하나의 행으로 표시
+      const groupMap = new Map<string, GroupedStation>();
+      const groupOrder: string[] = [];
+      (data as Station[]).forEach(s => {
+        const name = s.station_name.replace(/역$/, '');
+        if (!groupMap.has(name)) {
+          groupMap.set(name, { station_name: name, lines: [] });
+          groupOrder.push(name);
+        }
+        const entry = groupMap.get(name)!;
+        if (!entry.lines.some(l => l.line === s.line)) {
+          entry.lines.push({ id: s.id, line: s.line });
+        }
       });
-      setSuggestions(deduped.slice(0, 8));
+      setSuggestions(groupOrder.slice(0, 8).map(n => groupMap.get(n)!));
     } catch { setSuggestions([]); }
     finally { setSugLoading(false); }
   }, []);
@@ -91,15 +98,17 @@ export default function RouteScreen() {
     return () => clearTimeout(t);
   }, [fromText, toText, activeField, fetchSuggestions]);
 
-  const selectStation = (station: Station) => {
-    const displayName = station.station_name.replace(/역$/, '');
+  const selectStation = (grouped: GroupedStation) => {
+    const displayName = grouped.station_name;
+    // 첫 번째 노선의 id를 대표 id로 사용
+    const repStation: Station = { id: grouped.lines[0]?.id ?? 0, station_name: displayName, line: grouped.lines[0]?.line ?? '' };
     if (activeField === 'from') {
-      setFromStation({ ...station, station_name: displayName });
+      setFromStation(repStation);
       setFromText(displayName);
       setActiveField('to');
       setTimeout(() => toRef.current?.focus(), 100);
     } else {
-      setToStation({ ...station, station_name: displayName });
+      setToStation(repStation);
       setToText(displayName);
       setActiveField(null);
     }
@@ -248,16 +257,17 @@ export default function RouteScreen() {
           {sugLoading && <ActivityIndicator color={COLORS.primary} style={{ padding: 12 }} />}
           <FlatList
             data={suggestions}
-            keyExtractor={item => `${item.id}`}
+            keyExtractor={item => item.station_name}
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.suggestionItem} onPress={() => selectStation(item)}>
-                <View style={[styles.suggestionBadge, { backgroundColor: getLineColor(item.line) }]}>
-                  <ThemedText style={styles.suggestionBadgeText}>{lineLabel(item.line)}</ThemedText>
-                </View>
-                <View>
-                  <ThemedText style={styles.suggestionName}>{item.station_name}</ThemedText>
-                  <ThemedText style={styles.suggestionLine}>{item.line}</ThemedText>
+                <ThemedText style={styles.suggestionName}>{item.station_name}</ThemedText>
+                <View style={styles.suggestionBadgeRow}>
+                  {item.lines.map(l => (
+                    <View key={l.line} style={[styles.suggestionLineBadge, { backgroundColor: getLineColor(l.line) }]}>
+                      <ThemedText style={styles.suggestionBadgeText}>{lineLabel(l.line)}</ThemedText>
+                    </View>
+                  ))}
                 </View>
               </TouchableOpacity>
             )}
@@ -459,9 +469,11 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 16,
     borderWidth: 1, borderColor: COLORS.border, zIndex: 100,
   },
-  suggestionItem: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  suggestionItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  suggestionBadgeRow: { flexDirection: 'row', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '55%' },
+  suggestionLineBadge: { width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
   suggestionBadge: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  suggestionBadgeText: { color: 'white', fontSize: 13, fontWeight: '800' },
+  suggestionBadgeText: { color: 'white', fontSize: 12, fontWeight: '800' },
   suggestionName: { fontSize: 15, fontWeight: '700', color: COLORS.textMain },
   suggestionLine: { fontSize: 12, color: COLORS.textSub, marginTop: 1 },
 
