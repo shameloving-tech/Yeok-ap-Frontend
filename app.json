@@ -42,7 +42,7 @@
           "icon": "./assets/images/icon.png",
           "color": "#3B82C4",
           "sounds": [],
-          "mode": "production"
+          "mode": "development"
         }
       ]
     ],
