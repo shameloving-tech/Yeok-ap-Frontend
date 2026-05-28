@@ -58,7 +58,6 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
 
   return (
     <View style={card.wrap}>
-      {/* 상단: 편성번호 · 방향 · 잔여시간 */}
       <View style={card.row}>
         <View style={[card.badge, { borderColor: color }]}>
           <Ionicons name="train-outline" size={11} color={color} />
@@ -74,55 +73,36 @@ function TrainCard({ train, color, remaining }: { train: Train; color: string; r
         </View>
       </View>
 
-      {/* 노선 구간: 역이름과 도트를 같은 컬럼에 배치해 정렬 */}
-      {/* 전전역 ─ 전역 ──🚂── 현재(도착)역 ─ 다다음역 */}
-      <View style={card.trackRow}>
-        {/* 전전역 */}
-        <View style={card.stCol}>
-          <ThemedText style={card.stLabel} numberOfLines={1}>
-            {train.prev_prev_station ?? ''}
-          </ThemedText>
-          <View style={[card.stDot, { backgroundColor: '#C7C7CC' }]} />
-        </View>
-
-        {/* 짧은 연결선 */}
-        <View style={[card.shortRail, { backgroundColor: '#D1D1D6' }]} />
-
-        {/* 전역 */}
-        <View style={card.stCol}>
-          <ThemedText style={card.stLabel} numberOfLines={1}>
-            {train.prev_station ?? ''}
-          </ThemedText>
-          <View style={[card.stDot, { backgroundColor: '#8E8E93' }]} />
-        </View>
-
-        {/* 진행 구간 (열차 아이콘 포함) */}
-        <View style={card.progRail}>
-          <View style={[card.railFill, { flex: Math.max(0.001, progress), backgroundColor: color }]} />
-          <View style={[card.trainBall, { backgroundColor: color }]}>
+      {/* 4-station segment: 전전역 ─ 전역 ──🚂── 현재역 ─ 다음역 */}
+      <View style={card.seg}>
+        <View style={[card.dot, { backgroundColor: '#C7C7CC' }]} />
+        <View style={card.shortConn} />
+        <View style={[card.dot, { backgroundColor: '#8E8E93' }]} />
+        <View style={card.track}>
+          <View style={[card.filled, { flex: Math.max(0.001, progress), backgroundColor: color }]} />
+          <View style={[card.trainIcon, { backgroundColor: color }]}>
             <Ionicons name="train" size={9} color="white" />
           </View>
-          <View style={[card.railEmpty, { flex: Math.max(0.001, 1 - progress) }]} />
+          <View style={[card.empty, { flex: Math.max(0.001, 1 - progress) }]} />
         </View>
+        <View style={[card.dot, { backgroundColor: color }]} />
+        <View style={[card.shortConn, { backgroundColor: '#E5E5EA' }]} />
+        <View style={[card.dot, { backgroundColor: '#C7C7CC' }]} />
+      </View>
 
-        {/* 현재(도착)역 */}
-        <View style={card.stCol}>
-          <ThemedText style={[card.stLabel, { color, fontWeight: '800' }]} numberOfLines={1}>
-            {train.next_station}
-          </ThemedText>
-          <View style={[card.stDot, { backgroundColor: color }]} />
-        </View>
-
-        {/* 짧은 연결선 */}
-        <View style={[card.shortRail, { backgroundColor: '#E5E5EA' }]} />
-
-        {/* 다다음역 */}
-        <View style={card.stCol}>
-          <ThemedText style={card.stLabel} numberOfLines={1}>
-            {train.next_next_station ?? ''}
-          </ThemedText>
-          <View style={[card.stDot, { backgroundColor: '#C7C7CC' }]} />
-        </View>
+      <View style={card.names4}>
+        <ThemedText style={card.stName4} numberOfLines={1}>
+          {train.prev_prev_station ?? ''}
+        </ThemedText>
+        <ThemedText style={[card.stName4, { textAlign: 'center' }]} numberOfLines={1}>
+          {train.prev_station ?? ''}
+        </ThemedText>
+        <ThemedText style={[card.stName4, { textAlign: 'center', color, fontWeight: '800' }]} numberOfLines={1}>
+          {train.next_station}
+        </ThemedText>
+        <ThemedText style={[card.stName4, { textAlign: 'right' }]} numberOfLines={1}>
+          {train.next_next_station ?? ''}
+        </ThemedText>
       </View>
 
       <ThemedText style={card.status} numberOfLines={1}>{train.status_msg}</ThemedText>
@@ -138,18 +118,24 @@ export function TrainLocationSheet({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const [line,    setLine]    = useState('1호선');
-  const [trains,  setTrains]  = useState<Train[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(false);
-  const [secs,    setSecs]    = useState<Record<string, number>>({});
+  const [line,       setLine]       = useState('1호선');
+  const [trains,     setTrains]     = useState<Train[]>([]);
+  const [loading,    setLoading]    = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error,      setError]      = useState(false);
+  const [secs,       setSecs]       = useState<Record<string, number>>({});
   const fetchTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
   const countTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortRef    = useRef<AbortController | null>(null);  // 노선 전환 시 구버전 fetch 취소용
 
-  const loadTrains = useCallback(async (l: string) => {
-    setLoading(true);
-    setError(false);
+  const loadTrains = useCallback(async (l: string, silent = false) => {
+    // 이전 진행 중인 요청 취소 (구버전 응답이 새 데이터 덮어쓰는 것 방지)
+    abortRef.current?.abort();
     const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    if (!silent) setLoading(true);
+    setError(false);
     const timeout = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     try {
       const res = await fetch(
@@ -158,34 +144,46 @@ export function TrainLocationSheet({
       );
       clearTimeout(timeout);
       if (!res.ok) {
-        setError(true);
+        if (!silent) setError(true);
         return;
       }
       const data: Train[] = await res.json();
       setTrains(data.slice(0, MAX_TRAINS));
-      const map: Record<string, number> = {};
-      data.forEach(t => { map[t.train_no] = t.barvlDt; });
-      setSecs(map);
-    } catch (e) {
+      // 카운트다운 스마트 머지: 로컬 카운트가 API값보다 낮으면(더 정확) 유지,
+      // 새 열차이거나 API가 더 작으면 API값으로 업데이트
+      setSecs(prev => {
+        const next: Record<string, number> = {};
+        data.forEach(t => {
+          const cur = prev[t.train_no];
+          next[t.train_no] = cur !== undefined ? Math.min(cur, t.barvlDt) : t.barvlDt;
+        });
+        return next;
+      });
+    } catch (e: any) {
       clearTimeout(timeout);
-      setError(true);
-      console.error('TrainLocationSheet:', e);
+      if (e?.name === 'AbortError') return;  // 취소된 요청 — 무시
+      if (!silent) { setError(true); console.error('TrainLocationSheet:', e); }
     } finally {
-      setLoading(false);
+      // 현재 요청이 취소되지 않은 경우에만 로딩 상태 해제
+      if (!ctrl.signal.aborted && !silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (!visible) return;
     setTrains([]);
+    setSecs({});
     setError(false);
     loadTrains(line);
-    fetchTimer.current = setInterval(() => loadTrains(line), FETCH_MS);
-    return () => { if (fetchTimer.current) clearInterval(fetchTimer.current); };
+    fetchTimer.current = setInterval(() => loadTrains(line, true), FETCH_MS);
+    return () => {
+      if (fetchTimer.current) { clearInterval(fetchTimer.current); fetchTimer.current = null; }
+    };
   }, [visible, line, loadTrains]);
 
   useEffect(() => {
     if (!visible) return;
+    // 노선 전환 시 이전 countTimer도 반드시 재시작 (line 의존성 필수)
     countTimer.current = setInterval(() => {
       setSecs(prev => {
         const next: Record<string, number> = {};
@@ -193,16 +191,27 @@ export function TrainLocationSheet({
         return next;
       });
     }, 1000);
-    return () => { if (countTimer.current) clearInterval(countTimer.current); };
-  }, [visible]);
+    return () => {
+      if (countTimer.current) { clearInterval(countTimer.current); countTimer.current = null; }
+    };
+  }, [visible, line]);  // ← line 추가: 노선 변경 시 카운터 재시작
 
   const color = getLineColor(line);
   const isLimited = LIMITED_LINES.has(line);
 
+  // 에러 상태에서 재시도 — 목록을 지우고 처음부터 로드
   const handleRetry = () => {
     setTrains([]);
+    setSecs({});
     loadTrains(line);
   };
+
+  // 당겨서 새로고침 — 기존 목록 유지, 카운트다운 보존
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await loadTrains(line, true); }
+    finally { setRefreshing(false); }
+  }, [line, loadTrains]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -259,8 +268,8 @@ export function TrainLocationSheet({
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
-                refreshing={loading && trains.length > 0}
-                onRefresh={handleRetry}
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
                 colors={[color]}
                 tintColor={color}
               />
@@ -390,7 +399,7 @@ const card = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFEFEF',
   },
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 18, gap: 8 },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1.5, borderRadius: 10,
@@ -403,54 +412,19 @@ const card = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10,
   },
   timeText: { fontSize: 13, fontWeight: '800', color: COLORS.textMain },
-
-  // ── 역 트랙 레이아웃 (도트와 이름이 같은 컬럼) ──
-  trackRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',   // 모든 요소를 하단 기준 정렬
-    marginBottom: 10,
-  },
-  // 역 컬럼: 이름(위) + 도트(아래)
-  stCol: {
-    width: 44,
-    alignItems: 'center',
-    gap: 5,
-  },
-  stLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: COLORS.textSub,
-    textAlign: 'center',
-    lineHeight: 13,
-  },
-  stDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  // 짧은 연결선: marginBottom으로 도트 중심(5px)에 맞춤
-  shortRail: {
-    width: 10,
-    height: 3,
-    borderRadius: 1.5,
-    marginBottom: 3.5,   // (10-3)/2 = 3.5 → 도트 중심과 수평 정렬
-  },
-  // 진행 구간: height=10(도트와 동일)으로 바닥 정렬 시 중심이 일치
-  progRail: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 10,
-    overflow: 'visible',  // 열차 아이콘(22px)이 위아래로 넘쳐도 표시
-  },
-  railFill: { height: 4, borderRadius: 2 },
-  trainBall: {
+  seg: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 2 },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#C7C7CC' },
+  track: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 20 },
+  filled: { height: 4, borderRadius: 2 },
+  trainIcon: {
     width: 22, height: 22, borderRadius: 11,
     justifyContent: 'center', alignItems: 'center',
     marginHorizontal: 1, zIndex: 1,
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
   },
-  railEmpty: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2 },
-
-  status: { fontSize: 11, color: COLORS.textSub, textAlign: 'center', marginTop: 4 },
+  empty: { height: 4, backgroundColor: '#E0E0E0', borderRadius: 2 },
+  shortConn: { width: 20, height: 3, backgroundColor: '#D1D1D6', borderRadius: 1.5 },
+  names4: { flexDirection: 'row', marginBottom: 6, marginTop: 4 },
+  stName4: { flex: 1, fontSize: 11, color: COLORS.textSub, fontWeight: '600' },
+  status: { fontSize: 11, color: COLORS.textSub, textAlign: 'center' },
 });

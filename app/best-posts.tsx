@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -41,6 +42,8 @@ export default function BestPostsScreen() {
   const [sort, setSort] = useState<SortType>('hot');
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const [likedReports, setLikedReports] = useState<Set<number>>(new Set());
 
   useEffect(() => {
@@ -53,12 +56,15 @@ export default function BestPostsScreen() {
     if (raw) setLikedReports(new Set(JSON.parse(raw)));
   };
 
-  const fetchReports = async () => {
+  const fetchReports = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    setFetchError(false);
     try {
       const res = await fetch(`${BASE_URL}/reports`, { headers: { Accept: 'application/json' } });
       if (res.ok) setReports(await res.json());
-    } catch {}
-    finally { setLoading(false); }
+      else setFetchError(true);
+    } catch { setFetchError(true); }
+    finally { setLoading(false); setRefreshing(false); }
   };
 
   const sorted = useMemo(() => {
@@ -86,7 +92,11 @@ export default function BestPostsScreen() {
         setReports(prev => prev.map(r => r.id === reportId ? { ...r, likes_count: data.likes_count } : r));
       }
     } catch {
+      // 롤백: 좋아요 상태 & 카운트 원복
       setLikedReports(likedReports);
+      setReports(prev => prev.map(r =>
+        r.id === reportId ? { ...r, likes_count: (r.likes_count || 0) + (isLiked ? 1 : -1) } : r
+      ));
     }
   };
 
@@ -138,9 +148,9 @@ export default function BestPostsScreen() {
               onPress={(e) => { e.stopPropagation(); handleLike(item.id); }}
             >
               <Ionicons
-                name={isLiked ? 'heart' : 'heart-outline'}
+                name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
                 size={15}
-                color={isLiked ? '#FF3B30' : COLORS.textSub}
+                color={isLiked ? COLORS.primary : COLORS.textSub}
               />
               <ThemedText style={[styles.statText, isLiked && styles.statLiked]}>
                 {item.likes_count || 0}
@@ -186,13 +196,35 @@ export default function BestPostsScreen() {
         <View style={styles.loading}>
           <ActivityIndicator color={COLORS.primary} />
         </View>
+      ) : fetchError ? (
+        <View style={styles.loading}>
+          <Ionicons name="cloud-offline-outline" size={40} color={COLORS.textSub} />
+          <ThemedText style={{ color: COLORS.textSub, fontSize: 14, marginTop: 12 }}>데이터를 불러올 수 없습니다</ThemedText>
+          <TouchableOpacity onPress={() => fetchReports()} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: COLORS.primary, borderRadius: 14 }}>
+            <ThemedText style={{ color: 'white', fontWeight: '700' }}>다시 시도</ThemedText>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={sorted}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
-          contentContainerStyle={{ paddingTop: 10, paddingBottom: 40 + insets.bottom }}
+          contentContainerStyle={{ paddingTop: 10, paddingBottom: 40 + insets.bottom, flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchReports(true)}
+              tintColor={COLORS.primary}
+              colors={[COLORS.primary]}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.loading}>
+              <Ionicons name="document-text-outline" size={40} color={COLORS.textSub} />
+              <ThemedText style={{ color: COLORS.textSub, fontSize: 14, marginTop: 12 }}>게시글이 없습니다</ThemedText>
+            </View>
+          }
         />
       )}
     </View>
@@ -266,5 +298,5 @@ const styles = StyleSheet.create({
   stats: { flexDirection: 'row', gap: 14 },
   statBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statText: { fontSize: 13, fontWeight: '600', color: COLORS.textSub },
-  statLiked: { color: '#FF3B30' },
+  statLiked: { color: COLORS.primary },
 });

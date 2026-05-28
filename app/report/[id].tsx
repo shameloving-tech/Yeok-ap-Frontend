@@ -96,7 +96,8 @@ export default function ReportDetailScreen() {
 
   const fetchReport = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/reports/${id}`);
+      const res = await fetch(`${BASE_URL}/reports/${id}`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) return;  // 404/500 등 — report null 유지 → 에러 화면 표시
       const data = await res.json();
       setReport(data);
       setLikesCount(data.likes_count || 0);
@@ -109,8 +110,10 @@ export default function ReportDetailScreen() {
 
   const fetchComments = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/reports/${id}/comments`);
-      setComments(await res.json());
+      const res = await fetch(`${BASE_URL}/reports/${id}/comments`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data)) setComments(data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -395,7 +398,7 @@ export default function ReportDetailScreen() {
           <TextInput
             ref={inputRef}
             style={styles.commentInput}
-            placeholder="됓글을 입력하세요..."
+            placeholder="댓글을 입력하세요..."
             placeholderTextColor={COLORS.textSub}
             value={commentText}
             onChangeText={setCommentText}
@@ -496,7 +499,7 @@ export default function ReportDetailScreen() {
             <TouchableOpacity onPress={() => setEditCommentOpen(false)} style={styles.editHeaderBtn}>
               <Ionicons name="close" size={24} color={COLORS.textMain} />
             </TouchableOpacity>
-            <ThemedText style={styles.editModalTitle}>됓글 수정</ThemedText>
+            <ThemedText style={styles.editModalTitle}>댓글 수정</ThemedText>
             <TouchableOpacity style={styles.editHeaderBtn} onPress={submitEditComment}>
               <ThemedText style={{ color: COLORS.primary, fontWeight: '700', fontSize: 16 }}>완료</ThemedText>
             </TouchableOpacity>

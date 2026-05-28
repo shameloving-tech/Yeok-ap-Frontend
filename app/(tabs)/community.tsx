@@ -92,6 +92,7 @@ export default function CommunityScreen() {
   };
 
   const loadReports = async () => {
+    setLoading(true);
     const cached = await AsyncStorage.getItem(REPORTS_CACHE_KEY(selectedLine));
     if (cached) {
       setReports(JSON.parse(cached));
@@ -225,7 +226,10 @@ export default function CommunityScreen() {
       formData.append('report[device_token]', token);
       if (image) {
         const filename = image.split('/').pop() || 'image.jpg';
-        formData.append('report[image]', { uri: image, name: filename, type: 'image/jpeg' } as any);
+        const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+        const mimeMap: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
+        const mimeType = mimeMap[ext] ?? 'image/jpeg';
+        formData.append('report[image]', { uri: image, name: filename, type: mimeType } as any);
       }
       const response = await fetch(`${BASE_URL}/reports`, { method: 'POST', body: formData });
       if (response.ok) {
@@ -248,6 +252,7 @@ export default function CommunityScreen() {
       }
     } catch (e) {
       console.error(e);
+      Toast.show({ type: 'error', text1: '오류', text2: '네트워크 오류가 발생했습니다.' });
     } finally {
       setSubmitting(false);
     }
@@ -256,18 +261,29 @@ export default function CommunityScreen() {
   // ─── 렌더 헬퍼 ───────────────────────────────────────────────
   const renderFeedCard = ({ item }: { item: any }) => {
     const isLiked = likedReports.has(item.id);
+    const statusColor: Record<string, string> = { '폭발': '#FF3B30', '혼잡': '#FF9500', '보통': '#FFCC00', '여유': '#34C759' };
+    const sc = item.status ? statusColor[item.status] : null;
     return (
       <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(`/report/${item.id}`)} style={styles.feedCard}>
         <View style={styles.feedTopRow}>
           <View style={[styles.circleLineIcon, { backgroundColor: getLineColor(item.line_name) }]}>
             <ThemedText style={styles.circleLineText}>{getLineNumber(item.line_name)}</ThemedText>
           </View>
-          <ThemedText style={styles.feedMeta}>{item.station_name} · {getTimeAgo(item.created_at)}</ThemedText>
-          <ThemedText style={styles.feedNickname}>{item.nickname || '익명'}</ThemedText>
-          <View style={styles.tagBadge}><ThemedText style={styles.tagText}>블라블라</ThemedText></View>
+          <View style={{ flex: 1 }}>
+            <ThemedText style={styles.feedMeta}>{item.station_name} · {item.line_name}</ThemedText>
+            <ThemedText style={styles.feedMetaSub}>{getTimeAgo(item.created_at)} · {item.nickname || '익명'}</ThemedText>
+          </View>
+          {sc && (
+            <View style={[styles.statusChip, { backgroundColor: sc + '1A', borderColor: sc + '55' }]}>
+              <View style={[styles.statusDot, { backgroundColor: sc }]} />
+              <ThemedText style={[styles.statusChipText, { color: sc }]}>{item.status}</ThemedText>
+            </View>
+          )}
         </View>
-        <ThemedText style={styles.feedTitle}>{item.content.split('\n')[0]}</ThemedText>
-        <ThemedText style={styles.feedBody} numberOfLines={2}>{item.content}</ThemedText>
+        <ThemedText style={styles.feedTitle} numberOfLines={1}>{item.content.split('\n')[0]}</ThemedText>
+        {item.content.includes('\n') && (
+          <ThemedText style={styles.feedBody} numberOfLines={2}>{item.content.split('\n').slice(1).join('\n')}</ThemedText>
+        )}
         {item.image_url ? (
           <Image
             source={{ uri: fixImageUrl(item.image_url) ?? undefined }}
@@ -279,7 +295,7 @@ export default function CommunityScreen() {
           <TouchableOpacity style={styles.statBtn} onPress={(e) => { e.stopPropagation(); handleLike(item.id); }}>
             <Ionicons
               name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
-              size={16}
+              size={15}
               color={isLiked ? COLORS.primary : COLORS.textSub}
             />
             <ThemedText style={[styles.statText, isLiked && styles.statTextActive]}>
@@ -287,7 +303,7 @@ export default function CommunityScreen() {
             </ThemedText>
           </TouchableOpacity>
           <TouchableOpacity style={styles.statBtn} onPress={() => router.push(`/report/${item.id}`)}>
-            <Ionicons name="chatbubble-outline" size={16} color={COLORS.textSub} />
+            <Ionicons name="chatbubble-outline" size={15} color={COLORS.textSub} />
             <ThemedText style={styles.statText}>{item.comments_count || 0}</ThemedText>
           </TouchableOpacity>
         </View>
@@ -330,7 +346,7 @@ export default function CommunityScreen() {
         <View style={styles.loadingContainer}><ActivityIndicator color={COLORS.primary} /></View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.popularScroll}>
-          {reports.slice(0, 3).map((item: any) => {
+          {[...reports].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0)).slice(0, 3).map((item: any) => {
             const isLiked = likedReports.has(item.id);
             return (
               <TouchableOpacity key={item.id} activeOpacity={0.85} onPress={() => router.push(`/report/${item.id}`)} style={styles.popularCard}>
@@ -406,16 +422,19 @@ export default function CommunityScreen() {
 
       {/* 제보 FAB */}
       <TouchableOpacity
-        style={[styles.fab, { bottom: 16 }]}
+        style={[styles.fab, { bottom: 16 + insets.bottom }]}
         onPress={() => setIsPostModalOpen(true)}
       >
         <Ionicons name="pencil" size={24} color="white" />
       </TouchableOpacity>
 
-      {/* ── 제보 작성 모달 ── */}
-      {isPostModalOpen && (
-        <View style={styles.modalOverlay}>
-          <SafeAreaView style={{ flex: 1 }}>
+      {/* ── 제보 작성 모달 — Modal 사용으로 Android 뒤로가기 처리 ── */}
+      <Modal
+        visible={isPostModalOpen}
+        animationType="slide"
+        onRequestClose={() => setIsPostModalOpen(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F9FB' }}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setIsPostModalOpen(false)} style={styles.modalHeaderBtn}>
                 <Ionicons name="close" size={24} color={COLORS.textMain} />
@@ -469,7 +488,7 @@ export default function CommunityScreen() {
 
               <View style={styles.noticeBanner}>
                 <Ionicons name="information-circle-outline" size={18} color={COLORS.textSub} style={{ marginRight: 8, flexShrink: 0 }} />
-                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쿈감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
+                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쾌감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
               </View>
 
               <ThemedText style={styles.formSectionLabel}>제보 내용</ThemedText>
@@ -484,7 +503,7 @@ export default function CommunityScreen() {
               />
               <TextInput
                 style={styles.contentInput}
-                placeholder={"제보 내용을 입력해 주세요.\n(예: 3번 출구 에스컈레이터 고장, 열차 지연 등)"}
+                placeholder={"제보 내용을 입력해 주세요.\n(예: 3번 출구 에스컬레이터 고장, 열차 지연 등)"}
                 placeholderTextColor={COLORS.textSub}
                 multiline
                 textAlignVertical="top"
@@ -524,8 +543,7 @@ export default function CommunityScreen() {
               <View style={{ height: 40 }} />
             </ScrollView>
           </SafeAreaView>
-        </View>
-      )}
+      </Modal>
 
       {/* ── 댓글 바텀시트 ── */}
       <Modal
@@ -612,7 +630,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
   loadingContainer: { padding: 20, alignItems: 'center' },
 
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'white' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: COLORS.primary },
   headerSearch: { padding: 4 },
@@ -634,8 +652,8 @@ const styles = StyleSheet.create({
   popularScroll: { paddingHorizontal: 20, gap: 12, paddingBottom: 10 },
   popularCard: { width: width * 0.72, backgroundColor: 'white', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  hotBadge: { backgroundColor: '#FFF2F2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 8 },
-  hotText: { color: '#FF5252', fontSize: 10, fontWeight: '800' },
+  hotBadge: { backgroundColor: '#FF52521A', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, marginRight: 8, borderWidth: 1, borderColor: '#FF525244' },
+  hotText: { color: '#FF3B30', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   circleLineIconSmall: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginRight: 6 },
   circleLineTextSmall: { color: 'white', fontSize: 10, fontWeight: '800', lineHeight: 12, includeFontPadding: false } as any,
   cardMeta: { fontSize: 12, color: COLORS.textSub, fontWeight: '500', flex: 1 },
@@ -652,10 +670,14 @@ const styles = StyleSheet.create({
   feedTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   circleLineIcon: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   circleLineText: { color: 'white', fontSize: 12, fontWeight: '800' },
-  feedMeta: { flex: 1, fontSize: 14, color: COLORS.textSub, fontWeight: '500' },
+  feedMeta: { fontSize: 14, color: COLORS.textMain, fontWeight: '600' },
+  feedMetaSub: { fontSize: 12, color: COLORS.textSub, fontWeight: '400', marginTop: 1 },
   feedNickname: { fontSize: 13, color: COLORS.textSub, fontWeight: '600' },
   tagBadge: { backgroundColor: COLORS.border, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   tagText: { fontSize: 11, color: COLORS.textSub, fontWeight: '700' },
+  statusChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, gap: 4 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusChipText: { fontSize: 11, fontWeight: '700' },
   feedTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textMain, marginBottom: 8 },
   feedBody: { fontSize: 14, color: COLORS.textSub, lineHeight: 20, marginBottom: 12 },
   feedImage: { width: '100%', height: 200, borderRadius: 16, marginBottom: 12 },
@@ -664,7 +686,7 @@ const styles = StyleSheet.create({
   statText: { fontSize: 13, color: COLORS.textSub, fontWeight: '600' },
   statTextActive: { color: COLORS.primary },
 
-  fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, elevation: 8 },
+  fab: { position: 'absolute', bottom: 16, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, elevation: 6 },
 
   modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#F8F9FB', zIndex: 1000 },
   modalHeader: {
