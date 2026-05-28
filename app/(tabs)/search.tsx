@@ -603,7 +603,7 @@ export default function RouteScreen() {
       {/* ── 즐겨찾기 라벨 선택 모달 ── */}
       <Modal visible={labelVisible} transparent animationType="fade" onRequestClose={() => setLabelVisible(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setLabelVisible(false)}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.modalHandle} />
             <ThemedText style={styles.modalTitle}>어떤 경로예요?</ThemedText>
             <ThemedText style={styles.modalSub}>라벨을 지정하면 홈에서 바로 접근할 수 있어요</ThemedText>
@@ -622,7 +622,7 @@ export default function RouteScreen() {
       {/* ── 출발 알림 모달 ── */}
       <Modal visible={notifVisible} transparent animationType="fade" onRequestClose={() => setNotifVisible(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setNotifVisible(false)}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.modalHandle} />
             <ThemedText style={styles.modalTitle}>출발 알림 설정</ThemedText>
             <ThemedText style={styles.modalSub}>
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: 'white', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 24, paddingTop: 14, paddingBottom: 40,
+    paddingHorizontal: 24, paddingTop: 14, paddingBottom: 20,
   },
   modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E5EA', alignSelf: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textMain, marginBottom: 4 },

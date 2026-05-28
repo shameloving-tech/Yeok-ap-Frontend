@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { BASE_URL } from '@/constants/config';
@@ -50,6 +51,7 @@ export const StationDetailModal: React.FC<Props> = ({
   onClose,
   onFavoritesChanged,
 }) => {
+  const insets = useSafeAreaInsets();
   const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [favs, setFavs] = useState<FavoriteStation[]>([]);
@@ -98,7 +100,7 @@ export const StationDetailModal: React.FC<Props> = ({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={[styles.lineBadge, { backgroundColor: getLineColor(station.line_name) }]}>
@@ -198,7 +200,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 8,
-    paddingBottom: 30,
+    paddingBottom: 16,
     maxHeight: '85%',
   },
   handle: {
