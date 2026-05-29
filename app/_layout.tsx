@@ -7,12 +7,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from '@/components/toast-config';
+import crashlytics from '@react-native-firebase/crashlytics';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AnimatedSplashScreen } from '@/components/animated-splash-screen';
 import { SubwayDataProvider } from '@/contexts/SubwayDataContext';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+crashlytics().setCrashlyticsCollectionEnabled(true);
 
 export const unstable_settings = {
   anchor: '(tabs)',
