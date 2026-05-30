@@ -23,8 +23,8 @@ type Faq = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  usage: '이용방법',
-  error: '오류/버그',
+  usage: '이용',
+  error: '오류',
   account: '계정',
   etc: '기타',
 };
