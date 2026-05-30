@@ -78,11 +78,9 @@ export default function ProfileEditScreen() {
             {profileImage ? (
               <Image source={{ uri: profileImage }} style={styles.avatar} contentFit="cover" />
             ) : (
-              <Image
-                source={{ uri: `https://api.dicebear.com/7.x/avataaars/svg?seed=${nickname || 'default'}` }}
-                style={styles.avatar}
-                contentFit="cover"
-              />
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <ThemedText style={styles.avatarFallbackText}>{nickname?.[0] || '역'}</ThemedText>
+              </View>
             )}
             <View style={styles.cameraBadge}>
               <Ionicons name="camera" size={16} color="white" />
@@ -139,6 +137,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
     borderWidth: 3, borderColor: 'white',
   },
+  avatarFallback: { justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.primary + '20' },
+  avatarFallbackText: { fontSize: 42, fontWeight: '800', color: COLORS.primary },
   cameraBadge: {
     position: 'absolute', right: 2, bottom: 2,
     width: 34, height: 34, borderRadius: 17,
