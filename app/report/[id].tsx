@@ -24,6 +24,8 @@ import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor, getLineNumber } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
 import { getDeviceToken, getOrCreateNickname } from '@/utils/deviceToken';
+import { AdBanner } from '@/components/AdBanner';
+import { useAds } from '@/hooks/useAds';
 
 const LIKED_REPORTS_KEY = 'liked_reports';
 const FLAGGED_REPORTS_KEY = 'flagged_reports';
@@ -49,6 +51,7 @@ export default function ReportDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const inputRef = useRef<TextInput>(null);
+  const detailAd = useAds('community_detail');
 
   const [myNickname, setMyNickname] = useState('');
   const [myDeviceToken, setMyDeviceToken] = useState('');
@@ -363,6 +366,7 @@ export default function ReportDetailScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
+              {detailAd && <AdBanner ad={detailAd} style={{ marginHorizontal: 16, marginVertical: 8 }} />}
               <View style={styles.commentsHeader}>
                 <ThemedText style={styles.commentsTitle}>댓글</ThemedText>
                 {commentsLoading && <ActivityIndicator size="small" color={COLORS.primary} />}

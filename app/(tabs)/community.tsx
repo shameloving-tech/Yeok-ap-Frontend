@@ -26,6 +26,8 @@ import { APP_COLORS as COLORS } from '@/constants/theme';
 import { getLineColor, getLineNumber } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
 import { getDeviceToken, getOrCreateNickname } from '@/utils/deviceToken';
+import { AdBanner } from '@/components/AdBanner';
+import { useAds } from '@/hooks/useAds';
 
 const { width } = Dimensions.get('window');
 
@@ -56,6 +58,7 @@ const fixImageUrl = (url: string): string | null => {
 
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
+  const feedAd = useAds('feed_between');
   const [selectedLine, setSelectedLine] = useState('전체');
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [reports, setReports] = useState<any[]>([]);
@@ -259,12 +262,14 @@ export default function CommunityScreen() {
   };
 
   // ─── 렌더 헬퍼 ───────────────────────────────────────────────
-  const renderFeedCard = ({ item }: { item: any }) => {
+  const renderFeedCard = ({ item, index }: { item: any; index: number }) => {
     const isLiked = likedReports.has(item.id);
     const statusColor: Record<string, string> = { '폭발': '#FF3B30', '혼잡': '#FF9500', '보통': '#FFCC00', '여유': '#34C759' };
     const sc = item.status ? statusColor[item.status] : null;
     return (
-      <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(`/report/${item.id}`)} style={styles.feedCard}>
+      <>
+        {feedAd && index === 4 && <AdBanner ad={feedAd} />}
+        <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(`/report/${item.id}`)} style={styles.feedCard}>
         <View style={styles.feedTopRow}>
           <View style={[styles.circleLineIcon, { backgroundColor: getLineColor(item.line_name) }]}>
             <ThemedText style={styles.circleLineText}>{getLineNumber(item.line_name)}</ThemedText>
@@ -308,6 +313,7 @@ export default function CommunityScreen() {
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
+      </>
     );
   };
 

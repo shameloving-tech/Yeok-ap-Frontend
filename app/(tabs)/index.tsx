@@ -25,6 +25,8 @@ import { LINE_CONFIG, getLineColor, getLineNumber } from '@/constants/lines';
 import { useSubwayDataContext } from '@/contexts/SubwayDataContext';
 import { FavoriteStation, getFavoriteStations } from '@/utils/favorites';
 import { FavoriteRoute, getFavoriteRoutes } from '@/utils/favoriteRoutes';
+import { AdBanner } from '@/components/AdBanner';
+import { useAds } from '@/hooks/useAds';
 
 const { width } = Dimensions.get('window');
 
@@ -50,6 +52,7 @@ export const saveRecentStation = async (station: any) => {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const homeBannerAd = useAds('home_banner');
   const { stationList, isConnected } = useSubwayDataContext();
   const [followedLines, setFollowedLines] = useState<string[]>([]);
   const [showOnlyFollowed, setShowOnlyFollowed] = useState(false);
@@ -267,29 +270,9 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.noticeSection}>
-          <LinearGradient
-            colors={[COLORS.secondary, '#4A7C63']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.noticeCard}
-          >
-            <View style={styles.noticeContent}>
-              <View style={styles.noticeTag}>
-                <ThemedText style={styles.noticeTagText}>Notice</ThemedText>
-              </View>
-              <ThemedText style={styles.noticeTitle}>오늘부터 강남역 주변 할인 혜택 시작!</ThemedText>
-              <ThemedText style={styles.noticeSub}>역앞 캐릭터 '역이'와 함께 새로운 맛집 지도를 확인해보세요.</ThemedText>
-            </View>
-            <View style={styles.noticeImageContainer}>
-              <Image
-                source={require('@/assets/images/character_design.svg')}
-                style={styles.characterImage}
-                contentFit="contain"
-              />
-            </View>
-          </LinearGradient>
-        </View>
+        {homeBannerAd && (
+          <AdBanner ad={homeBannerAd} style={{ marginHorizontal: 16, marginTop: 8 }} />
+        )}
 
         {/* ── 즐겨찾기 경로 ── */}
         {favRoutes.length > 0 && (
