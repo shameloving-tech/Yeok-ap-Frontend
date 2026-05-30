@@ -126,8 +126,7 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="앱 설정">
-          <Row icon="notifications-outline" iconColor="#5856D6" label="알림 설정" href="/notification-settings" />
-          <Row icon="globe-outline"         iconColor="#007AFF" label="언어 설정"  value="한국어" last />
+          <Row icon="notifications-outline" iconColor="#5856D6" label="알림 설정" href="/notification-settings" last />
         </Section>
 
         <Section title="고객지원">
