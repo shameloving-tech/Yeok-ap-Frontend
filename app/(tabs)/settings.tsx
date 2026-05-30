@@ -132,7 +132,7 @@ export default function SettingsScreen() {
 
         <Section title="고객지원">
           <Row icon="megaphone-outline"     iconColor={COLORS.accent} label="공지사항" href="/notices" />
-          <Row icon="help-circle-outline"   iconColor={COLORS.accent} label="자주 묻는 질문" />
+          <Row icon="help-circle-outline"   iconColor={COLORS.accent} label="자주 묻는 질문" href="/faqs" />
           <Row icon="mail-outline"          iconColor={COLORS.accent} label="1:1 문의하기" last />
         </Section>
 
