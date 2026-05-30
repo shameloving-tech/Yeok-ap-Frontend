@@ -152,12 +152,12 @@ const styles = StyleSheet.create({
 
   categoryBar: { paddingHorizontal: 20, paddingVertical: 12, gap: 8 },
   categoryChip: {
-    paddingHorizontal: 14, paddingVertical: 7,
+    paddingHorizontal: 10, paddingVertical: 5,
     borderRadius: 20, backgroundColor: 'white',
     borderWidth: 1, borderColor: '#E5E5EA',
   },
   categoryChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  categoryChipText: { fontSize: 13, fontWeight: '500', color: COLORS.textSub },
+  categoryChipText: { fontSize: 12, fontWeight: '500', color: COLORS.textSub },
   categoryChipTextActive: { color: 'white', fontWeight: '700' },
 
   list: { padding: 20, paddingTop: 4, gap: 10 },
