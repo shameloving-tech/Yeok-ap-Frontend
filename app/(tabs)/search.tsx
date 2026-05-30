@@ -29,6 +29,7 @@ import {
 import {
   scheduleDepartureNotification, cancelNotification, DepartureMinutes,
 } from '@/utils/notifications';
+import { getNotifSetting } from '@/app/notification-settings';
 
 type Station = { id: number; station_name: string; line: string };
 type GroupedStation = { station_name: string; lines: { id: number; line: string }[] };
@@ -143,6 +144,12 @@ export default function RouteScreen() {
 
   const handleScheduleNotif = async (mins: DepartureMinutes) => {
     if (!routeResult) return;
+    const enabled = await getNotifSetting('departure');
+    if (!enabled) {
+      Alert.alert('출발 알림 꺼짐', '설정 > 알림 설정에서 출발 알림을 켜주세요.');
+      setNotifVisible(false);
+      return;
+    }
     if (notifId) await cancelNotification(notifId);
     const id = await scheduleDepartureNotification(
       routeResult.from, routeResult.to, mins, routeResult.total_min
