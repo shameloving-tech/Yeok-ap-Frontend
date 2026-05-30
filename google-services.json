@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "653510868104",
+    "project_id": "yeok-ap",
+    "storage_bucket": "yeok-ap.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:653510868104:android:ab4fbc706951be6d65333d",
+        "android_client_info": {
+          "package_name": "com.suminkwak.yeokapclient"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3lt6YyKPyS69WbB_d_lHyMzKMqRkhJ5c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
