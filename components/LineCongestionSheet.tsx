@@ -52,7 +52,7 @@ const LEGEND: [string, string][] = [
   ['폭발', '#FF3B30'],
 ];
 
-type ArrivalItem = { line: string; direction: string | null; message: string | null; destination: string | null; seconds: number };
+type ArrivalItem = { line: string; message: string | null; destination: string | null; seconds: number };
 
 export function LineCongestionSheet({ visible, lineName, liveStations, onClose, onStationPress }: Props) {
   const insets = useSafeAreaInsets();
@@ -97,7 +97,8 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
     let cancelled = false;
     setArrivalsLoading(true);
     setArrivals([]);
-    fetch(`${BASE_URL}/api/v1/stations/arrivals?name=${encodeURIComponent(selected)}`)
+    const url = `${BASE_URL}/api/v1/stations/arrivals?name=${encodeURIComponent(selected)}${lineName ? `&line=${encodeURIComponent(lineName)}` : ''}`;
+    fetch(url)
       .then(r => r.json())
       .then(data => { if (!cancelled) setArrivals(data.arrivals || []); })
       .catch(() => { if (!cancelled) setArrivals([]); })
@@ -111,9 +112,11 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
   const liveCount    = stations.filter(s => s.congestion_level).length;
 
   const formatSeconds = (sec: number) => {
-    if (sec <= 0) return '곧 도착';
+    if (sec <= 30) return '곧 도착';
     if (sec < 60) return `${sec}초`;
-    return `${Math.floor(sec / 60)}분 후`;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s > 0 ? `${m}분 ${s}초` : `${m}분 후`;
   };
 
   return (
@@ -315,7 +318,7 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
                     {arrivals.slice(0, 3).map((a, i) => (
                       <View key={i} style={styles.arrivalRow}>
                         <ThemedText style={styles.arrivalDir} numberOfLines={1}>
-                          {a.destination ?? a.direction ?? ''}
+                          {a.destination ?? ''}
                         </ThemedText>
                         <ThemedText style={[styles.arrivalTime, { color: a.seconds <= 60 ? COLORS.danger : lineColor }]}>
                           {formatSeconds(a.seconds)}
