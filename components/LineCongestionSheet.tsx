@@ -214,7 +214,7 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
                     {isAbove && (
                       <View style={[styles.namePlate, { bottom: MAP_H - LINE_Y + DOT_N / 2 + 6 }]}>
                         <ThemedText
-                          style={[styles.stName, isSel && { color: lineColor, fontWeight: '800' }]}
+                          style={[styles.stName, isSel && { color: lineColor, fontWeight: '700' }]}
                           numberOfLines={2}
                         >
                           {shortName}
@@ -247,7 +247,7 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
                     {!isAbove && (
                       <View style={[styles.namePlate, { top: LINE_Y + DOT_N / 2 + 6 }]}>
                         <ThemedText
-                          style={[styles.stName, isSel && { color: lineColor, fontWeight: '800' }]}
+                          style={[styles.stName, isSel && { color: lineColor, fontWeight: '700' }]}
                           numberOfLines={2}
                         >
                           {shortName}
@@ -314,14 +314,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   sheet: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: COLORS.cardBg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingTop: 0,
     maxHeight: SCREEN_HEIGHT * 0.88,
   },
   handle: {
-    width: 40, height: 4, backgroundColor: '#E5E5EA', borderRadius: 2,
+    width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2,
     alignSelf: 'center', marginTop: 14, marginBottom: 2,
   },
 
@@ -329,12 +329,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: '#F2F2F7',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.divider,
     gap: 12,
   },
-  lineCircle: { width: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center' },
-  lineCircleText: { color: 'white', fontSize: 18, fontWeight: '800' },
-  title: { fontSize: 17, fontWeight: '800', color: COLORS.textMain },
+  lineCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  lineCircleText: { color: 'white', fontSize: 16, fontWeight: '700' },
+  title: { fontSize: 17, fontWeight: '700', color: COLORS.textMain },
   subtitle: { fontSize: 12, color: COLORS.textSub, marginTop: 2 },
 
   // Legend
@@ -344,8 +344,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     gap: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.divider,
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
@@ -384,20 +384,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.divider,
     gap: 12,
   },
   detailLeft: { flex: 1 },
-  detailName: { fontSize: 17, fontWeight: '800', color: COLORS.textMain },
-  detailBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  detailBadgeText: { fontSize: 12, fontWeight: '800' },
+  detailName: { fontSize: 16, fontWeight: '700', color: COLORS.textMain },
+  detailBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
+  detailBadgeText: { fontSize: 12, fontWeight: '600' },
   detailMsg: { fontSize: 12, color: COLORS.textSub },
   detailBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 2,
-    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999,
   },
-  detailBtnText: { fontSize: 13, fontWeight: '700', color: 'white' },
+  detailBtnText: { fontSize: 13, fontWeight: '600', color: 'white' },
 
   // Hint
   hintBox: {
@@ -406,8 +406,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.divider,
   },
   hintText: { fontSize: 12, color: COLORS.textSub },
 
@@ -419,12 +419,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: '#FFF9F0',
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#FFE5B4',
   },
   unsupportedText: { fontSize: 12, color: '#B37400', flex: 1 },
 
   // Retry button
-  retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F2F2F7' },
-  retryText: { fontSize: 14, fontWeight: '700' },
+  retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.surfaceSecondary },
+  retryText: { fontSize: 14, fontWeight: '600' },
 });

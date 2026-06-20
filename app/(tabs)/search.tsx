@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
-import { APP_COLORS as COLORS } from '@/constants/theme';
+import { APP_COLORS as COLORS, SHADOW } from '@/constants/theme';
 import { getLineColor } from '@/constants/lines';
 import { BASE_URL } from '@/constants/config';
 import { useSubwayDataContext } from '@/contexts/SubwayDataContext';
@@ -661,13 +661,12 @@ export default function RouteScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { paddingHorizontal: 20, paddingVertical: 14, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.primary },
+  header: { paddingHorizontal: 20, paddingVertical: 14, backgroundColor: COLORS.cardBg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textMain },
 
   inputCard: {
-    margin: 16, backgroundColor: 'white', borderRadius: 20,
-    padding: 16, elevation: 3,
-    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12,
+    margin: 16, backgroundColor: COLORS.cardBg, borderRadius: 16,
+    padding: 16, ...SHADOW.md,
   },
   inputRow: { flexDirection: 'row', alignItems: 'center', height: 44 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
@@ -687,35 +686,34 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: 'row', backgroundColor: COLORS.border,
     borderRadius: 12, padding: 3,
   },
-  modeBtn: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 10 },
+  modeBtn: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 999 },
   modeBtnActive: { backgroundColor: COLORS.primary },
-  modeBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.textSub },
+  modeBtnText: { fontSize: 13, fontWeight: '500', color: COLORS.textSub },
   modeBtnTextActive: { color: 'white' },
-  searchBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 14 },
+  searchBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 999 },
   searchBtnDisabled: { backgroundColor: COLORS.border },
-  searchBtnText: { color: 'white', fontWeight: '800', fontSize: 15 },
+  searchBtnText: { color: 'white', fontWeight: '600', fontSize: 14 },
 
   // 드롭다운 공통
   dropdown: {
-    marginHorizontal: 16, backgroundColor: 'white', borderRadius: 16,
-    maxHeight: 300, elevation: 8,
-    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 16,
-    borderWidth: 1, borderColor: COLORS.border, zIndex: 100,
+    marginHorizontal: 16, backgroundColor: COLORS.cardBg, borderRadius: 14,
+    maxHeight: 300, ...SHADOW.lg,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border, zIndex: 100,
   },
 
   // 역 자동완성
-  suggestionItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  suggestionItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
   suggestionBadgeRow: { flexDirection: 'row', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '55%' },
   suggestionLineBadge: { width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
-  suggestionBadge: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  suggestionBadgeText: { color: 'white', fontSize: 12, fontWeight: '800' },
-  suggestionName: { fontSize: 15, fontWeight: '700', color: COLORS.textMain },
+  suggestionBadge: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  suggestionBadgeText: { color: 'white', fontSize: 12, fontWeight: '700' },
+  suggestionName: { fontSize: 15, fontWeight: '600', color: COLORS.textMain },
   suggestionLine: { fontSize: 12, color: COLORS.textSub, marginTop: 1 },
 
   // 최근 경로
   recentHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6 },
   recentHeaderText: { fontSize: 11, color: COLORS.textSub, fontWeight: '600' },
-  recentRouteItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  recentRouteItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
   recentRouteStations: { flexDirection: 'row', alignItems: 'center' },
   recentFrom: { fontSize: 14, fontWeight: '700', color: COLORS.textMain },
   recentTo: { fontSize: 14, fontWeight: '700', color: COLORS.textMain },
@@ -727,13 +725,13 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 15, color: COLORS.textSub, textAlign: 'center', paddingHorizontal: 40 },
   placeholderText: { fontSize: 15, color: COLORS.textSub },
 
-  resultCard: { margin: 16, backgroundColor: 'white', borderRadius: 20, overflow: 'hidden', elevation: 3, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12 },
+  resultCard: { margin: 16, backgroundColor: COLORS.cardBg, borderRadius: 16, overflow: 'hidden', ...SHADOW.md },
 
   // 액션 바
   actionBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border,
   },
   actionRouteLabel: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   actionFrom: { fontSize: 13, fontWeight: '700', color: COLORS.textMain },
@@ -745,15 +743,15 @@ const styles = StyleSheet.create({
     borderRadius: 10, borderWidth: 1, borderColor: COLORS.border,
   },
   actionBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '12' },
-  actionBtnBadge: { fontSize: 11, fontWeight: '800', color: COLORS.primary },
+  actionBtnBadge: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
 
-  summaryRow: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
   summaryItem: { flex: 1, alignItems: 'center' },
-  summaryValue: { fontSize: 22, fontWeight: '900', color: COLORS.textMain },
+  summaryValue: { fontSize: 22, fontWeight: '700', color: COLORS.textMain },
   summaryLabel: { fontSize: 12, color: COLORS.textSub, marginTop: 2 },
-  summaryDivider: { width: 1, height: 36, backgroundColor: COLORS.border },
+  summaryDivider: { width: StyleSheet.hairlineWidth, height: 36, backgroundColor: COLORS.border },
   expressBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  expressText: { fontSize: 13, fontWeight: '800', color: '#FF9500' },
+  expressText: { fontSize: 13, fontWeight: '700', color: '#FF9500' },
 
   stepsContainer: { padding: 20 },
   step: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 2, position: 'relative' },
@@ -779,16 +777,16 @@ const styles = StyleSheet.create({
   congestionBannerText: { fontSize: 12, color: '#E65100', fontWeight: '600', flex: 1 },
   stationRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   congestionBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  congestionBadgeText: { fontSize: 11, fontWeight: '800' },
+  congestionBadgeText: { fontSize: 11, fontWeight: '600' },
 
   // 모달 공통
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: 'white', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    backgroundColor: COLORS.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     paddingHorizontal: 24, paddingTop: 14, paddingBottom: 20,
   },
-  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E5EA', alignSelf: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textMain, marginBottom: 4 },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textMain, marginBottom: 4 },
   modalSub: { fontSize: 13, color: COLORS.textSub, marginBottom: 20 },
 
   // 라벨 선택
