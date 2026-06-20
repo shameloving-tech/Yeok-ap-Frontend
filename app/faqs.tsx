@@ -45,10 +45,10 @@ export default function FaqsScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   useEffect(() => {
-    fetch(`${BASE_URL}/admin/faqs`)
-      .then((r) => r.json())
+    fetch(`${BASE_URL}/api/v1/faqs`)
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: Faq[]) => setFaqs(data))
-      .catch(() => {})
+      .catch(() => setFaqs([]))
       .finally(() => setLoading(false));
   }, []);
 
@@ -137,7 +137,7 @@ export default function FaqsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  container: { flex: 1, backgroundColor: COLORS.background },
 
   header: {
     flexDirection: 'row',
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: COLORS.background,
   },
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textMain },
@@ -163,8 +163,8 @@ const styles = StyleSheet.create({
   list: { padding: 20, paddingTop: 4, gap: 10 },
 
   card: {
-    backgroundColor: 'white',
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 14,
     padding: 16,
     shadowColor: '#000',
     shadowOpacity: 0.04,

@@ -25,7 +25,7 @@ export function useAds(position: Ad['position']) {
       setAds(cache[position].data);
       return;
     }
-    fetch(`${BASE_URL}/admin/advertisements`)
+    fetch(`${BASE_URL}/api/v1/advertisements`)
       .then((r) => r.json())
       .then((data: Ad[]) => {
         const active = data.filter((a) => a.status === 'active' && a.position === position);

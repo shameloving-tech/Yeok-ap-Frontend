@@ -31,13 +31,13 @@ export default function NoticesScreen() {
   const [expanded, setExpanded] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch(`${BASE_URL}/admin/notices`)
-      .then((r) => r.json())
+    fetch(`${BASE_URL}/api/v1/notices`)
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: Notice[]) => {
         const published = data.filter((n) => n.published_at);
         setNotices(published);
       })
-      .catch(() => {})
+      .catch(() => setNotices([]))
       .finally(() => setLoading(false));
   }, []);
 
@@ -101,7 +101,7 @@ export default function NoticesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  container: { flex: 1, backgroundColor: COLORS.background },
 
   header: {
     flexDirection: 'row',
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: COLORS.background,
   },
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textMain },
@@ -117,8 +117,8 @@ const styles = StyleSheet.create({
   list: { padding: 20, gap: 12 },
 
   card: {
-    backgroundColor: 'white',
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 14,
     padding: 16,
     shadowColor: '#000',
     shadowOpacity: 0.04,

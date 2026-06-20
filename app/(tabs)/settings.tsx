@@ -77,12 +77,11 @@ export default function SettingsScreen() {
         text: '로그아웃',
         style: 'destructive',
         onPress: async () => {
-          await AsyncStorage.multiRemove([
-            'user_nickname', 'user_profile_image',
-            'liked_reports', 'recent_stations', 'favorite_stations',
-            'followed_lines', 'favorite_routes', 'recent_routes_v2',
-            'my_report_ids', 'device_token',
-          ]);
+          const allKeys = await AsyncStorage.getAllKeys();
+          const keepKeys: string[] = [];
+          await AsyncStorage.multiRemove(
+            allKeys.filter(k => !keepKeys.includes(k))
+          );
           setNickname('');
           setProfileImage(null);
         },
