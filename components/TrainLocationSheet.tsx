@@ -62,12 +62,15 @@ function TrainCard({ train, lineColor }: { train: Train; lineColor: string }) {
   }, [train.barvlDt]);
 
   const progress = Math.max(0, Math.min(0.96, 1 - remaining / AVG_SEG_SEC));
-  const isUrgent = remaining <= 30;
+  const isUrgent = remaining <= 60;
 
   const formatTime = (sec: number) => {
-    if (sec <= 0) return '도착';
+    if (sec <= 0) return '도착 중';
+    if (sec <= 30) return '곧 도착';
     if (sec < 60) return `${sec}초`;
-    return `${Math.floor(sec / 60)}분 ${sec % 60}초`;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s === 0 ? `${m}분` : `${m}분 ${s}초`;
   };
 
   return (
