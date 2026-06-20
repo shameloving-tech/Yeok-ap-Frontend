@@ -41,6 +41,12 @@ type RouteResult = {
   steps: RouteStep[];
 };
 
+type DepartureInfo = {
+  nextTrainSec: number;
+  boardTime: string;   // HH:MM
+  arrivalTime: string; // HH:MM
+} | null;
+
 function lineLabel(line: string) {
   return line?.match(/(\d+)/)?.[1] || line?.slice(0, 2) || 'M';
 }
@@ -86,6 +92,8 @@ export default function RouteScreen() {
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState('');
+  const [departureInfo, setDepartureInfo] = useState<DepartureInfo>(null);
+  const [departureLoading, setDepartureLoading] = useState(false);
   const fromRef = useRef<TextInput>(null);
   const toRef = useRef<TextInput>(null);
   const { stationList } = useSubwayDataContext();
@@ -170,6 +178,46 @@ export default function RouteScreen() {
     setNotifVisible(false);
   };
 
+  const formatTime = (date: Date) => {
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    return `${h}:${m}`;
+  };
+
+  const fetchDepartureInfo = async (result: RouteResult) => {
+    const boardStep = result.steps.find(s => s.type === 'board');
+    if (!boardStep) return;
+    setDepartureLoading(true);
+    setDepartureInfo(null);
+    try {
+      const res = await fetch(
+        `${BASE_URL}/api/v1/stations/arrivals?name=${encodeURIComponent(boardStep.station)}&line=${encodeURIComponent(boardStep.line)}`
+      );
+      const now = Date.now();
+      if (res.ok) {
+        const data = await res.json();
+        const first = (data.arrivals as { seconds: number }[] | undefined)?.[0];
+        if (first && first.seconds > 0) {
+          const boardDate = new Date(now + first.seconds * 1000);
+          const arrivalDate = new Date(now + first.seconds * 1000 + result.total_min * 60 * 1000);
+          setDepartureInfo({ nextTrainSec: first.seconds, boardTime: formatTime(boardDate), arrivalTime: formatTime(arrivalDate) });
+          return;
+        }
+      }
+      // fallback: no real-time data, assume boarding now
+      const boardDate = new Date(now);
+      const arrivalDate = new Date(now + result.total_min * 60 * 1000);
+      setDepartureInfo({ nextTrainSec: 0, boardTime: formatTime(boardDate), arrivalTime: formatTime(arrivalDate) });
+    } catch {
+      const now2 = Date.now();
+      const boardDate = new Date(now2);
+      const arrivalDate = new Date(now2 + result.total_min * 60 * 1000);
+      setDepartureInfo({ nextTrainSec: 0, boardTime: formatTime(boardDate), arrivalTime: formatTime(arrivalDate) });
+    } finally {
+      setDepartureLoading(false);
+    }
+  };
+
   // ── 역 자동완성 ─────────────────────────────────────────
   const fetchSuggestions = useCallback(async (q: string) => {
     if (!q.trim()) { setSuggestions([]); return; }
@@ -250,6 +298,7 @@ export default function RouteScreen() {
     setRouteLoading(true);
     setRouteError('');
     setRouteResult(null);
+    setDepartureInfo(null);
     setActiveField(null);
     // 새 경로 검색 시 이전 알림 취소 및 초기화
     if (notifId) cancelNotification(notifId);
@@ -264,6 +313,7 @@ export default function RouteScreen() {
       if (data.error) { setRouteError(data.error); }
       else {
         setRouteResult(data);
+        fetchDepartureInfo(data);
         // 최근 경로 저장
         await saveRecentRoute({ from, to, totalMin: data.total_min });
         const recents = await getRecentRoutes();
@@ -507,6 +557,35 @@ export default function RouteScreen() {
                 </>
               )}
             </View>
+
+            {/* 출발 예상 시간 */}
+            {(departureLoading || departureInfo) && (
+              <View style={styles.departureBanner}>
+                <Ionicons name="train-outline" size={16} color={COLORS.primary} />
+                {departureLoading ? (
+                  <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 4 }} />
+                ) : departureInfo && (
+                  <View style={styles.departureInfo}>
+                    {departureInfo.nextTrainSec > 0 ? (
+                      <ThemedText style={styles.departureText}>
+                        다음 열차{' '}
+                        <ThemedText style={styles.departureHighlight}>
+                          {departureInfo.nextTrainSec >= 60
+                            ? `${Math.floor(departureInfo.nextTrainSec / 60)}분 후`
+                            : `${departureInfo.nextTrainSec}초 후`}
+                        </ThemedText>
+                        {' '}출발
+                      </ThemedText>
+                    ) : (
+                      <ThemedText style={styles.departureText}>지금 출발 기준</ThemedText>
+                    )}
+                    <ThemedText style={styles.departureTime}>
+                      {departureInfo.boardTime} → <ThemedText style={styles.departureHighlight}>{departureInfo.arrivalTime}</ThemedText> 도착 예상
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* 혼잡도 경보 배너 */}
             {(() => {
@@ -768,6 +847,16 @@ const styles = StyleSheet.create({
   transferText: { fontSize: 12, color: COLORS.textSub, fontWeight: '600' },
   expressPill: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 },
   expressPillText: { fontSize: 11, color: '#FF9500', fontWeight: '700' },
+
+  departureBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: COLORS.primary + '0F', paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.primary + '30',
+  },
+  departureInfo: { flex: 1, gap: 2 },
+  departureText: { fontSize: 13, color: COLORS.textSub, fontWeight: '500' },
+  departureHighlight: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  departureTime: { fontSize: 13, color: COLORS.textSub, fontWeight: '500' },
 
   congestionBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
