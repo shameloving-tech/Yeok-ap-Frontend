@@ -154,15 +154,24 @@ export default function HomeScreen() {
       return {
         station_name: fav.station_name,
         line_name: fav.line_name,
-        congestion_level: live?.congestion_level ?? null,
-        arrival_message: live?.arrival_message ?? null,
+        congestion_level: isSubwayOperating ? (live?.congestion_level ?? null) : '운행종료',
+        arrival_message: isSubwayOperating ? (live?.arrival_message ?? null) : null,
       };
     });
-  }, [favoriteStations, stationList]);
+  }, [favoriteStations, stationList, isSubwayOperating]);
+
+  // 서울 지하철 운행 시간: 05:00~01:00. 01:00~04:59 = 운행 종료
+  const isSubwayOperating = useMemo(() => {
+    const h = new Date().getHours();
+    return h === 0 || h >= 5;
+  }, []);
 
   const processedLines = useMemo(() => {
     const levelOrder: Record<string, number> = { '폭발': 4, '혼잡': 3, '보통': 2, '여유': 1 };
     return LINE_CONFIG.map(line => {
+      if (!isSubwayOperating) {
+        return { ...line, status: '운행종료', msg: '운행 종료 · 첫차 05:30~', transfers: [], detailedTransfers: [] };
+      }
       const lineStations = stationList.filter(s => s.line_name === line.name);
       if (lineStations.length === 0) {
         return { ...line, status: '정보없음', msg: '혼잡도 정보 없음', transfers: [], detailedTransfers: [] };
@@ -190,7 +199,7 @@ export default function HomeScreen() {
       }
       return { ...line, status: worstStation.congestion_level ?? '정보없음', msg, transfers, detailedTransfers };
     });
-  }, [stationList]);
+  }, [stationList, isSubwayOperating]);
 
   const filteredLines = useMemo(() => {
     if (!searchQuery.trim()) return processedLines;
@@ -215,6 +224,7 @@ export default function HomeScreen() {
       case '혼잡': return '#FF9500';
       case '보통': return '#FFCC00';
       case '여유': return '#34C759';
+      case '운행종료': return '#8E8E93';
       default: return '#8E8E93';
     }
   };
@@ -382,7 +392,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {stationList.length === 0 ? (
+          {stationList.length === 0 && isSubwayOperating ? (
             <View style={styles.congestionLoading}>
               <ActivityIndicator color={COLORS.primary} />
               <ThemedText style={styles.loadingText}>노선 데이터 수신 중...</ThemedText>
