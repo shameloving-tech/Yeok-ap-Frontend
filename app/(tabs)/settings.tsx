@@ -78,7 +78,8 @@ export default function SettingsScreen() {
         style: 'destructive',
         onPress: async () => {
           const allKeys = await AsyncStorage.getAllKeys();
-          const keepKeys: string[] = [];
+          // device_token은 커뮤니티 글 작성자 식별에 사용되므로 로그아웃 후에도 유지
+          const keepKeys = ['device_token'];
           await AsyncStorage.multiRemove(
             allKeys.filter(k => !keepKeys.includes(k))
           );
