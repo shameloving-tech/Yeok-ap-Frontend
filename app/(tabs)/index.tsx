@@ -151,28 +151,25 @@ export default function HomeScreen() {
   const favoriteStationsWithStatus = useMemo(() => {
     return favoriteStations.map(fav => {
       const live = stationList.find(s => s.station_name === fav.station_name && s.line_name === fav.line_name);
+      const notOperating = live?.arrival_message === "운행 종료";
       return {
         station_name: fav.station_name,
         line_name: fav.line_name,
-        congestion_level: isSubwayOperating ? (live?.congestion_level ?? null) : '운행종료',
-        arrival_message: isSubwayOperating ? (live?.arrival_message ?? null) : null,
+        congestion_level: notOperating ? null : (live?.congestion_level ?? null),
+        arrival_message: live?.arrival_message ?? null,
       };
     });
-  }, [favoriteStations, stationList, isSubwayOperating]);
-
-  // 서울 지하철 운행 시간: 05:00~01:00. 01:00~04:59 = 운행 종료
-  const isSubwayOperating = useMemo(() => {
-    const h = new Date().getHours();
-    return h === 0 || h >= 5;
-  }, []);
+  }, [favoriteStations, stationList]);
 
   const processedLines = useMemo(() => {
     const levelOrder: Record<string, number> = { '폭발': 4, '혼잡': 3, '보통': 2, '여유': 1 };
     return LINE_CONFIG.map(line => {
-      if (!isSubwayOperating) {
+      const lineStations = stationList.filter(s => s.line_name === line.name);
+
+      // 백엔드가 막차 감지 시 arrival_message = "운행 종료" 세팅
+      if (lineStations.length > 0 && lineStations.every(s => s.arrival_message === "운행 종료")) {
         return { ...line, status: '운행종료', msg: '운행 종료 · 첫차 05:30~', transfers: [], detailedTransfers: [] };
       }
-      const lineStations = stationList.filter(s => s.line_name === line.name);
       if (lineStations.length === 0) {
         return { ...line, status: '정보없음', msg: '혼잡도 정보 없음', transfers: [], detailedTransfers: [] };
       }
@@ -199,7 +196,7 @@ export default function HomeScreen() {
       }
       return { ...line, status: worstStation.congestion_level ?? '정보없음', msg, transfers, detailedTransfers };
     });
-  }, [stationList, isSubwayOperating]);
+  }, [stationList]);
 
   const filteredLines = useMemo(() => {
     if (!searchQuery.trim()) return processedLines;
@@ -348,11 +345,17 @@ export default function HomeScreen() {
                     <ThemedText style={styles.stationName}>{fav.station_name}</ThemedText>
                     <ThemedText style={styles.stationNameSub}>{fav.line_name}</ThemedText>
                   </View>
-                  <View style={[styles.miniBadge, { backgroundColor: getStatusColor(fav.congestion_level ?? '') + '22' }]}>
-                    <ThemedText style={[styles.miniBadgeText, { color: getStatusColor(fav.congestion_level ?? '') }]}>
-                      {fav.congestion_level ?? '정보없음'}
-                    </ThemedText>
-                  </View>
+                  {fav.arrival_message === "운행 종료" ? (
+                    <View style={[styles.miniBadge, { backgroundColor: '#8E8E9322' }]}>
+                      <ThemedText style={[styles.miniBadgeText, { color: '#8E8E93' }]}>운행종료</ThemedText>
+                    </View>
+                  ) : fav.congestion_level ? (
+                    <View style={[styles.miniBadge, { backgroundColor: getStatusColor(fav.congestion_level) + '22' }]}>
+                      <ThemedText style={[styles.miniBadgeText, { color: getStatusColor(fav.congestion_level) }]}>
+                        {fav.congestion_level}
+                      </ThemedText>
+                    </View>
+                  ) : null}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -392,7 +395,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {stationList.length === 0 && isSubwayOperating ? (
+          {stationList.length === 0 ? (
             <View style={styles.congestionLoading}>
               <ActivityIndicator color={COLORS.primary} />
               <ThemedText style={styles.loadingText}>노선 데이터 수신 중...</ThemedText>
