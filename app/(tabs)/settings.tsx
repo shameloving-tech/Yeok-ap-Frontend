@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 
 import { ThemedText } from '@/components/themed-text';
-import { APP_COLORS as COLORS } from '@/constants/theme';
+import { APP_COLORS as COLORS, SHADOW } from '@/constants/theme';
 import { getOrCreateNickname } from '@/utils/deviceToken';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
@@ -168,7 +168,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  container: { flex: 1, backgroundColor: COLORS.background },
 
   header: {
     flexDirection: 'row',
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: COLORS.background,
   },
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textMain },
@@ -186,19 +186,16 @@ const styles = StyleSheet.create({
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 20,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 24,
     gap: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    ...SHADOW.md,
   },
   profileAvatar: { width: 56, height: 56, borderRadius: 28 },
   profileAvatarFallback: { backgroundColor: COLORS.primary + '20', justifyContent: 'center', alignItems: 'center' },
-  profileAvatarText: { fontSize: 22, fontWeight: '800', color: COLORS.primary },
+  profileAvatarText: { fontSize: 20, fontWeight: '700', color: COLORS.primary },
   profileInfo: { flex: 1 },
   profileNickname: { fontSize: 17, fontWeight: '700', color: COLORS.textMain, marginBottom: 3 },
   profileSub: { fontSize: 13, color: COLORS.textSub },
@@ -212,13 +209,10 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   card: {
-    backgroundColor: 'white',
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    ...SHADOW.sm,
   },
 
   row: {
@@ -242,14 +236,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'white',
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 14,
     paddingVertical: 15,
     marginBottom: 32,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    ...SHADOW.sm,
   },
   logoutText: { fontSize: 15, fontWeight: '600', color: COLORS.danger },
 
