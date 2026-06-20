@@ -52,6 +52,8 @@ const LEGEND: [string, string][] = [
   ['폭발', '#FF3B30'],
 ];
 
+type ArrivalItem = { line: string; direction: string | null; message: string | null; destination: string | null; seconds: number };
+
 export function LineCongestionSheet({ visible, lineName, liveStations, onClose, onStationPress }: Props) {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -60,6 +62,8 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
   const [selected, setSelected] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [arrivals, setArrivals] = useState<ArrivalItem[]>([]);
+  const [arrivalsLoading, setArrivalsLoading] = useState(false);
 
   const isUnsupported = lineName ? UNSUPPORTED_CONGESTION_LINES.has(lineName) : false;
 
@@ -69,6 +73,7 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
     setLoading(true);
     setStations([]);
     setSelected(null);
+    setArrivals([]);
     setFetchError(false);
     fetch(`${BASE_URL}/api/v1/stations/line_map?line=${encodeURIComponent(lineName)}`)
       .then(r => { if (!r.ok) throw new Error('api'); return r.json(); })
@@ -86,10 +91,30 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
     return () => { cancelled = true; };
   }, [lineName, visible, retryCount]);
 
+  // 역 탭 시 실시간 도착 정보 조회
+  useEffect(() => {
+    if (!selected) { setArrivals([]); return; }
+    let cancelled = false;
+    setArrivalsLoading(true);
+    setArrivals([]);
+    fetch(`${BASE_URL}/api/v1/stations/arrivals?name=${encodeURIComponent(selected)}`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setArrivals(data.arrivals || []); })
+      .catch(() => { if (!cancelled) setArrivals([]); })
+      .finally(() => { if (!cancelled) setArrivalsLoading(false); });
+    return () => { cancelled = true; };
+  }, [selected]);
+
   const lineColor = lineName ? getLineColor(lineName) : '#8E8E93';
   const lineNum   = lineName ? (lineName.match(/(\d+)/)?.[1] || lineName.slice(0, 2)) : '';
   const selectedData = stations.find(s => s.station_name === selected);
   const liveCount    = stations.filter(s => s.congestion_level).length;
+
+  const formatSeconds = (sec: number) => {
+    if (sec <= 0) return '곧 도착';
+    if (sec < 60) return `${sec}초`;
+    return `${Math.floor(sec / 60)}분 후`;
+  };
 
   return (
     <Modal visible={visible && !!lineName} transparent animationType="slide" onRequestClose={onClose}>
@@ -264,41 +289,58 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
         {/* 선택 역 상세 패널 */}
         {selectedData ? (
           <View style={styles.detailPanel}>
-            <View style={styles.detailLeft}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <ThemedText style={styles.detailName}>{selectedData.station_name}</ThemedText>
-                {selectedData.congestion_level ? (
-                  <View style={[styles.detailBadge, { backgroundColor: (LEVEL_COLOR[selectedData.congestion_level] || '#8E8E93') + '22' }]}>
-                    <ThemedText style={[styles.detailBadgeText, { color: LEVEL_COLOR[selectedData.congestion_level] || '#8E8E93' }]}>
-                      {selectedData.congestion_level}
-                    </ThemedText>
+            {/* 역명 + 혼잡도 배지 */}
+            <View style={styles.detailRow}>
+              <View style={styles.detailLeft}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <ThemedText style={styles.detailName}>{selectedData.station_name}</ThemedText>
+                  {selectedData.congestion_level ? (
+                    <View style={[styles.detailBadge, { backgroundColor: (LEVEL_COLOR[selectedData.congestion_level] || '#8E8E93') + '22' }]}>
+                      <ThemedText style={[styles.detailBadgeText, { color: LEVEL_COLOR[selectedData.congestion_level] || '#8E8E93' }]}>
+                        {selectedData.congestion_level}
+                      </ThemedText>
+                    </View>
+                  ) : (
+                    <View style={[styles.detailBadge, { backgroundColor: COLORS.surfaceSecondary }]}>
+                      <ThemedText style={[styles.detailBadgeText, { color: COLORS.textTertiary }]}>정보없음</ThemedText>
+                    </View>
+                  )}
+                </View>
+
+                {/* 실시간 도착 정보 */}
+                {arrivalsLoading ? (
+                  <ActivityIndicator size="small" color={lineColor} style={{ alignSelf: 'flex-start' }} />
+                ) : arrivals.length > 0 ? (
+                  <View style={styles.arrivalList}>
+                    {arrivals.slice(0, 3).map((a, i) => (
+                      <View key={i} style={styles.arrivalRow}>
+                        <ThemedText style={styles.arrivalDir} numberOfLines={1}>
+                          {a.destination ?? a.direction ?? ''}
+                        </ThemedText>
+                        <ThemedText style={[styles.arrivalTime, { color: a.seconds <= 60 ? COLORS.danger : lineColor }]}>
+                          {formatSeconds(a.seconds)}
+                        </ThemedText>
+                      </View>
+                    ))}
                   </View>
                 ) : (
-                  <View style={[styles.detailBadge, { backgroundColor: '#F2F2F7' }]}>
-                    <ThemedText style={[styles.detailBadgeText, { color: '#C7C7CC' }]}>정보없음</ThemedText>
-                  </View>
+                  <ThemedText style={styles.detailMsg}>도착 예정 열차 없음</ThemedText>
                 )}
               </View>
-              {selectedData.arrival_message ? (
-                <ThemedText style={styles.detailMsg} numberOfLines={1}>
-                  {selectedData.arrival_message}
-                </ThemedText>
-              ) : (
-                <ThemedText style={styles.detailMsg}>실시간 도착 정보 없음</ThemedText>
-              )}
+
+              <TouchableOpacity
+                style={[styles.detailBtn, { backgroundColor: lineColor }]}
+                onPress={() => { setSelected(null); onStationPress?.(selectedData); }}
+              >
+                <ThemedText style={styles.detailBtnText}>상세</ThemedText>
+                <Ionicons name="chevron-forward" size={14} color="white" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={[styles.detailBtn, { backgroundColor: lineColor }]}
-              onPress={() => { setSelected(null); onStationPress?.(selectedData); }}
-            >
-              <ThemedText style={styles.detailBtnText}>상세</ThemedText>
-              <Ionicons name="chevron-forward" size={14} color="white" />
-            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.hintBox}>
             <Ionicons name="hand-left-outline" size={14} color={COLORS.textSub} />
-            <ThemedText style={styles.hintText}>역을 탭하면 혼잡도를 확인할 수 있어요</ThemedText>
+            <ThemedText style={styles.hintText}>역을 탭하면 도착 정보를 확인할 수 있어요</ThemedText>
           </View>
         )}
         </View>
@@ -380,19 +422,21 @@ const styles = StyleSheet.create({
 
   // Detail panel
   detailPanel: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.divider,
-    gap: 12,
   },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   detailLeft: { flex: 1 },
   detailName: { fontSize: 16, fontWeight: '700', color: COLORS.textMain },
   detailBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
   detailBadgeText: { fontSize: 12, fontWeight: '600' },
   detailMsg: { fontSize: 12, color: COLORS.textSub },
+  arrivalList: { gap: 4 },
+  arrivalRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  arrivalDir: { fontSize: 13, color: COLORS.textSub, flex: 1 },
+  arrivalTime: { fontSize: 13, fontWeight: '600' },
   detailBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 2,
     paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999,
