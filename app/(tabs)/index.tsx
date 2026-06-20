@@ -185,8 +185,8 @@ export default function HomeScreen() {
       let msg = worstStation.congestion_level ? '원활하게 운행 중입니다' : '혼잡도 정보 없음';
       if (worstStation.congestion_level === '폭발' || worstStation.congestion_level === '혼잡') {
         msg = `${worstStation.station_name.replace(/역$/, '')} 매우 혼잡`;
-      } else if (worstStation.arrival_message) {
-        msg = worstStation.arrival_message;
+      } else if (worstStation.congestion_level === '보통') {
+        msg = '일부 구간 혼잡';
       }
       return { ...line, status: worstStation.congestion_level ?? '정보없음', msg, transfers, detailedTransfers };
     });
