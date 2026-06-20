@@ -237,17 +237,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 12,
-    backgroundColor: 'white',
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.cardBg,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border,
   },
   backBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '800', color: COLORS.textMain },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: COLORS.textMain },
 
   tabRow: {
     flexDirection: 'row', gap: 8,
-    backgroundColor: 'white',
+    backgroundColor: COLORS.cardBg,
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border,
   },
   tab: {
     paddingHorizontal: 14, paddingVertical: 7,
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     width: 48, alignItems: 'center',
     paddingTop: 18, gap: 2,
   },
-  rankNum: { fontSize: 22, fontWeight: '900', color: COLORS.textSub },
+  rankNum: { fontSize: 22, fontWeight: '700', color: COLORS.textSub },
   rankNumTop: { color: '#FFB800' },
   rankChange: { fontSize: 12, color: COLORS.border, fontWeight: '700' },
 
@@ -287,12 +287,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3,
     borderRadius: 8,
   },
-  lineBadgeText: { color: 'white', fontSize: 11, fontWeight: '800' },
+  lineBadgeText: { color: 'white', fontSize: 11, fontWeight: '700' },
 
   stationName: { fontSize: 12, fontWeight: '600', color: COLORS.textSub },
   time: { fontSize: 11, color: COLORS.textSub },
 
-  postTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textMain, marginBottom: 4 },
+  postTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textMain, marginBottom: 4 },
   postBody: { fontSize: 13, color: COLORS.textSub, lineHeight: 18, marginBottom: 10 },
 
   stats: { flexDirection: 'row', gap: 14 },

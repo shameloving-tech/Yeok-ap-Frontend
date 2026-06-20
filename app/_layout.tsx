@@ -54,11 +54,14 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <SubwayDataProvider>
         <View style={styles.container}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ headerShown: false }} />
-            <Stack.Screen name="report/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="best-posts" options={{ headerShown: false }} />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="modal" />
+            <Stack.Screen name="report/[id]" />
+            <Stack.Screen name="best-posts" />
+            <Stack.Screen name="notices" />
+            <Stack.Screen name="faqs" />
+            <Stack.Screen name="notification-settings" />
           </Stack>
           {showAnimatedSplash && <AnimatedSplashScreen isExiting={isExiting} />}
         </View>

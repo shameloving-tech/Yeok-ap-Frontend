@@ -192,11 +192,11 @@ export default function NotificationSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  container: { flex: 1, backgroundColor: COLORS.background },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#F2F2F7',
+    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: COLORS.background,
   },
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textMain },
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     marginBottom: 8, marginLeft: 4,
   },
   card: {
-    backgroundColor: 'white', borderRadius: 16, overflow: 'hidden',
+    backgroundColor: COLORS.cardBg, borderRadius: 14, overflow: 'hidden',
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
 
