@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -69,10 +69,13 @@ export default function CommunityScreen() {
   const [station, setStation] = useState('');
   const [postLine, setPostLine] = useState('');
   const [direction, setDirection] = useState('');
-  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [reportStatus, setReportStatus] = useState<string | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [stationSuggestions, setStationSuggestions] = useState<Array<{ station_name: string; line: string }>>([]);
+  const [stationSearching, setStationSearching] = useState(false);
+  const stationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 좋아요
   const [likedReports, setLikedReports] = useState<Set<number>>(new Set());
@@ -197,6 +200,28 @@ export default function CommunityScreen() {
     }
   };
 
+  // ─── 역 자동완성 ─────────────────────────────────────────────
+  const onStationChange = (text: string) => {
+    setStation(text);
+    if (stationDebounceRef.current) clearTimeout(stationDebounceRef.current);
+    if (!text.trim()) { setStationSuggestions([]); return; }
+    stationDebounceRef.current = setTimeout(async () => {
+      setStationSearching(true);
+      try {
+        const res = await fetch(`${BASE_URL}/api/v1/stations?q=${encodeURIComponent(text)}`);
+        const data = await res.json();
+        setStationSuggestions(Array.isArray(data) ? data.slice(0, 5) : []);
+      } catch {}
+      finally { setStationSearching(false); }
+    }, 300);
+  };
+
+  const selectStation = (s: { station_name: string; line: string }) => {
+    setStation(s.station_name);
+    setPostLine(s.line);
+    setStationSuggestions([]);
+  };
+
   // ─── 제보 작성 ───────────────────────────────────────────────
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -209,20 +234,19 @@ export default function CommunityScreen() {
   };
 
   const submitReport = async () => {
-    if (!station || !content || !direction || !postLine) {
-      Toast.show({ type: 'error', text1: '알림', text2: '호선을 포함해 모든 항목을 입력해주세요!' });
+    if (!station.trim() || !content.trim() || !postLine || !reportStatus) {
+      Toast.show({ type: 'error', text1: '알림', text2: '혼잡도, 호선, 역 이름, 내용을 모두 입력해주세요!' });
       return;
     }
     setSubmitting(true);
     try {
       const formattedStation = station.trim().endsWith('역') ? station.trim() : `${station.trim()}역`;
-      const fullContent = title.trim() ? `${title.trim()}\n${content}` : content;
       const formData = new FormData();
       formData.append('report[line_name]', postLine);
       formData.append('report[station_name]', formattedStation);
-      formData.append('report[direction]', direction);
-      formData.append('report[content]', fullContent);
-      formData.append('report[status]', '혼잡');
+      formData.append('report[direction]', direction.trim() || '전체 방면');
+      formData.append('report[content]', content);
+      formData.append('report[status]', reportStatus);
       const nickname = await getOrCreateNickname();
       const token = await getDeviceToken();
       formData.append('report[nickname]', nickname);
@@ -244,7 +268,7 @@ export default function CommunityScreen() {
           await AsyncStorage.setItem('my_report_ids', JSON.stringify(ids));
         }
         setIsPostModalOpen(false);
-        setImage(null); setTitle(''); setContent(''); setStation(''); setDirection(''); setPostLine('');
+        setImage(null); setContent(''); setStation(''); setDirection(''); setPostLine(''); setReportStatus(null); setStationSuggestions([]);
         await AsyncStorage.removeItem(REPORTS_CACHE_KEY(selectedLine));
         await AsyncStorage.removeItem(REPORTS_CACHE_KEY('전체'));
         fetchReports();
@@ -450,77 +474,102 @@ export default function CommunityScreen() {
             </View>
 
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <ThemedText style={styles.formSectionLabel}>현재 역</ThemedText>
-              <View style={styles.stationCard}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.lineScrollRow}>
-                  <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 2 }}>
-                    {SUBWAY_LINES.filter(l => l !== '전체').map(line => (
-                      <TouchableOpacity
-                        key={line}
-                        onPress={() => setPostLine(line)}
-                        style={[styles.lineChip, postLine === line && { backgroundColor: getLineColor(line), borderColor: getLineColor(line) }]}
-                      >
-                        <ThemedText style={[styles.lineChipText, postLine === line && { color: 'white' }]}>{line}</ThemedText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+              {/* 혼잡도 선택 */}
+              <ThemedText style={styles.formSectionLabel}>지금 혼잡도 <ThemedText style={styles.formRequired}>*</ThemedText></ThemedText>
+              <View style={styles.statusRow}>
+                {(['여유', '보통', '혼잡', '폭발'] as const).map((s) => {
+                  const COLOR: Record<string, string> = { '여유': '#34C759', '보통': '#FFCC00', '혼잡': '#FF9500', '폭발': '#FF3B30' };
+                  const selected = reportStatus === s;
+                  return (
+                    <TouchableOpacity
+                      key={s}
+                      onPress={() => setReportStatus(s)}
+                      style={[styles.statusSelectChip, { borderColor: COLOR[s] }, selected && { backgroundColor: COLOR[s] }]}
+                    >
+                      <View style={[styles.statusSelectDot, { backgroundColor: selected ? 'white' : COLOR[s] }]} />
+                      <ThemedText style={[styles.statusSelectText, selected && { color: 'white', fontWeight: '700' }]}>{s}</ThemedText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
+              {/* 내용 */}
+              <ThemedText style={[styles.formSectionLabel, { marginTop: 16 }]}>제보 내용 <ThemedText style={styles.formRequired}>*</ThemedText></ThemedText>
+              <TextInput
+                style={styles.contentInput}
+                placeholder={"무슨 일이 있나요?\n(예: 3번 출구 에스컬레이터 고장, 열차 지연 등)"}
+                placeholderTextColor={COLORS.textSub}
+                multiline
+                textAlignVertical="top"
+                value={content}
+                onChangeText={setContent}
+                autoFocus
+              />
+
+              {/* 역 정보 */}
+              <ThemedText style={[styles.formSectionLabel, { marginTop: 16 }]}>역 정보 <ThemedText style={styles.formRequired}>*</ThemedText></ThemedText>
+
+              {/* 역 이름 입력 + 자동완성 */}
+              <View style={styles.stationInputWrap}>
                 <View style={styles.stationInputRow}>
                   <View style={[styles.lineCircleMd, { backgroundColor: postLine ? getLineColor(postLine) : '#C7C7CC' }]}>
                     <ThemedText style={styles.lineCircleMdText}>
                       {postLine ? (postLine.match(/(\d+)/)?.[1] || postLine.slice(0, 2)) : '?'}
                     </ThemedText>
                   </View>
-                  <View style={styles.stationTextInputs}>
-                    <TextInput
-                      style={styles.stationNameInput}
-                      placeholder="역 이름"
-                      placeholderTextColor={COLORS.textSub}
-                      value={station}
-                      onChangeText={setStation}
-                    />
-                    <View style={styles.inputDivider} />
-                    <TextInput
-                      style={styles.directionInput}
-                      placeholder="방면 (예: 교대)"
-                      placeholderTextColor={COLORS.textSub}
-                      value={direction}
-                      onChangeText={setDirection}
-                    />
-                  </View>
+                  <TextInput
+                    style={styles.stationNameInput}
+                    placeholder="역 이름 검색"
+                    placeholderTextColor={COLORS.textSub}
+                    value={station}
+                    onChangeText={onStationChange}
+                  />
+                  {stationSearching && <ActivityIndicator size="small" color={COLORS.primary} style={{ marginRight: 12 }} />}
                 </View>
+                {stationSuggestions.length > 0 && (
+                  <View style={styles.suggestionList}>
+                    {stationSuggestions.map((s, i) => (
+                      <TouchableOpacity
+                        key={`${s.station_name}-${s.line}-${i}`}
+                        style={[styles.suggestionItem, i < stationSuggestions.length - 1 && styles.suggestionDivider]}
+                        onPress={() => selectStation(s)}
+                      >
+                        <View style={[styles.suggestionDot, { backgroundColor: getLineColor(s.line) }]} />
+                        <ThemedText style={styles.suggestionText}>{s.station_name}</ThemedText>
+                        <ThemedText style={styles.suggestionLine}>{s.line}</ThemedText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
 
-              <View style={styles.noticeBanner}>
-                <Ionicons name="information-circle-outline" size={18} color={COLORS.textSub} style={{ marginRight: 8, flexShrink: 0 }} />
-                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쾌감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
+              {/* 호선 그리드 */}
+              <View style={styles.lineGrid}>
+                {SUBWAY_LINES.filter(l => l !== '전체').map(line => (
+                  <TouchableOpacity
+                    key={line}
+                    onPress={() => setPostLine(line)}
+                    style={[styles.lineChip, postLine === line && { backgroundColor: getLineColor(line), borderColor: getLineColor(line) }]}
+                  >
+                    <ThemedText style={[styles.lineChipText, postLine === line && { color: 'white' }]}>{line}</ThemedText>
+                  </TouchableOpacity>
+                ))}
               </View>
 
-              <ThemedText style={styles.formSectionLabel}>제보 내용</ThemedText>
-              <ThemedText style={styles.formSectionSub}>현재 역 주변의 불편사항이나 실시간 정보를 공유해 주세요.</ThemedText>
-
+              {/* 방면 (선택) */}
               <TextInput
-                style={styles.titleInput}
-                placeholder="제목을 입력해 주세요."
+                style={styles.directionInput}
+                placeholder="방면 입력 (선택 · 예: 교대)"
                 placeholderTextColor={COLORS.textSub}
-                value={title}
-                onChangeText={setTitle}
-              />
-              <TextInput
-                style={styles.contentInput}
-                placeholder={"제보 내용을 입력해 주세요.\n(예: 3번 출구 에스컬레이터 고장, 열차 지연 등)"}
-                placeholderTextColor={COLORS.textSub}
-                multiline
-                textAlignVertical="top"
-                value={content}
-                onChangeText={setContent}
+                value={direction}
+                onChangeText={setDirection}
               />
 
-              <View style={styles.photoRow}>
+              {/* 사진 */}
+              <View style={[styles.photoRow, { marginTop: 16 }]}>
                 <TouchableOpacity style={styles.photoAddBtn} onPress={pickImage}>
                   <Ionicons name="image-outline" size={26} color={COLORS.textSub} />
-                  <ThemedText style={styles.photoAddText}>1/1</ThemedText>
+                  <ThemedText style={styles.photoAddText}>사진 추가</ThemedText>
                 </TouchableOpacity>
                 {image && (
                   <View style={styles.photoPreviewWrap}>
@@ -530,6 +579,11 @@ export default function CommunityScreen() {
                     </TouchableOpacity>
                   </View>
                 )}
+              </View>
+
+              <View style={styles.noticeBanner}>
+                <Ionicons name="information-circle-outline" size={16} color={COLORS.textSub} style={{ marginRight: 8, flexShrink: 0 }} />
+                <ThemedText style={styles.noticeText}>불법적인 내용이나 타인에게 불쾌감을 주는 게시글은 삭제될 수 있습니다.</ThemedText>
               </View>
 
               <TouchableOpacity
@@ -704,44 +758,59 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textMain },
   modalBody: { flex: 1, padding: 20 },
 
-  formSectionLabel: { fontSize: 15, fontWeight: '700', color: COLORS.textMain, marginBottom: 6, marginTop: 4 },
+  formSectionLabel: { fontSize: 15, fontWeight: '700', color: COLORS.textMain, marginBottom: 8, marginTop: 4 },
   formSectionSub: { fontSize: 13, color: COLORS.textSub, marginBottom: 12 },
+  formRequired: { color: COLORS.danger, fontSize: 14 },
 
-  stationCard: {
-    backgroundColor: 'white', borderRadius: 16, padding: 16,
-    marginBottom: 12,
-    ...SHADOW.sm,
+  statusRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  statusSelectChip: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10, borderRadius: 12, borderWidth: 1.5,
+    backgroundColor: 'white', gap: 5,
   },
-  lineScrollRow: { marginBottom: 14 },
-  lineChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border, backgroundColor: 'white' },
+  statusSelectDot: { width: 7, height: 7, borderRadius: 4 },
+  statusSelectText: { fontSize: 13, fontWeight: '500', color: COLORS.textMain },
+
+  stationInputWrap: {
+    backgroundColor: 'white', borderRadius: 12, marginBottom: 10,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border,
+    overflow: 'hidden',
+  },
+  stationInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 4 },
+  lineCircleMd: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  lineCircleMdText: { color: 'white', fontSize: 13, fontWeight: '700' },
+  stationNameInput: { flex: 1, fontSize: 15, fontWeight: '600', color: COLORS.textMain, paddingVertical: 10 },
+
+  suggestionList: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.border },
+  suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  suggestionDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.divider },
+  suggestionDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
+  suggestionText: { flex: 1, fontSize: 14, color: COLORS.textMain, fontWeight: '500' },
+  suggestionLine: { fontSize: 12, color: COLORS.textSub },
+
+  lineGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  lineChip: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border, backgroundColor: 'white' },
   lineChipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSub },
 
-  stationInputRow: { flexDirection: 'row', alignItems: 'center' },
-  lineCircleMd: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  lineCircleMdText: { color: 'white', fontSize: 15, fontWeight: '700' },
-  stationTextInputs: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border, borderRadius: 12, overflow: 'hidden' },
-  stationNameInput: { fontSize: 15, fontWeight: '600', color: COLORS.textMain, paddingHorizontal: 14, paddingVertical: 10 },
-  inputDivider: { height: StyleSheet.hairlineWidth, backgroundColor: COLORS.border },
-  directionInput: { fontSize: 14, color: COLORS.textSub, paddingHorizontal: 14, paddingVertical: 10 },
+  directionInput: {
+    backgroundColor: 'white', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 14, color: COLORS.textMain,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border,
+  },
 
   noticeBanner: {
     flexDirection: 'row', alignItems: 'flex-start',
-    backgroundColor: COLORS.divider, borderRadius: 12, padding: 14, marginBottom: 20,
+    backgroundColor: COLORS.divider, borderRadius: 12, padding: 12, marginBottom: 20,
   },
-  noticeText: { flex: 1, fontSize: 13, color: COLORS.textSub, lineHeight: 18 },
+  noticeText: { flex: 1, fontSize: 12, color: COLORS.textSub, lineHeight: 17 },
 
-  titleInput: {
-    backgroundColor: 'white', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 13,
-    fontSize: 15, color: COLORS.textMain, marginBottom: 10,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border,
-  },
   contentInput: {
     backgroundColor: 'white', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 13,
-    fontSize: 14, color: COLORS.textMain, height: 160, marginBottom: 16,
+    fontSize: 15, color: COLORS.textMain, height: 130, marginBottom: 0,
     borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border, lineHeight: 22,
   },
 
-  photoRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  photoRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   photoAddBtn: {
     width: 72, height: 72, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
     borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: 'white',
