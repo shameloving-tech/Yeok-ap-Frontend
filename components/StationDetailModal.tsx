@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   chartEmptyText: { fontSize: 14, color: COLORS.textSub },
 
   chartScroll: { paddingHorizontal: 20, paddingBottom: 8 },
-  chart: { flexDirection: 'row', alignItems: 'flex-end', height: 190 },
+  chart: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 14 },
   barColumn: { width: 30, alignItems: 'center', marginRight: 2 },
   barValue: { fontSize: 8, color: COLORS.textSub, marginBottom: 2, height: 11 },
   barWrapper: {
