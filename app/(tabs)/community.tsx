@@ -37,30 +37,6 @@ const SUBWAY_LINES = [
   '김포골드라인', '경강선', '서해선', '인천1호선', '인천2호선', 'GTX-A',
 ];
 
-const LINE_DIRECTIONS: Record<string, [string, string]> = {
-  '1호선':    ['소요산·동두천 방면', '인천·신창 방면'],
-  '2호선':    ['내선순환', '외선순환'],
-  '3호선':    ['대화 방면', '오금 방면'],
-  '4호선':    ['당고개 방면', '안산·오이도 방면'],
-  '5호선':    ['방화 방면', '마천·하남검단산 방면'],
-  '6호선':    ['응암순환', '신내 방면'],
-  '7호선':    ['장암 방면', '석남 방면'],
-  '8호선':    ['모란 방면', '암사 방면'],
-  '9호선':    ['개화 방면', '중앙보훈병원 방면'],
-  '수인분당선':  ['인천 방면', '청량리 방면'],
-  '경의중앙선':  ['문산 방면', '지평 방면'],
-  '공항철도':   ['인천공항T2 방면', '서울역 방면'],
-  '경춘선':    ['춘천 방면', '청량리 방면'],
-  '신분당선':   ['광교 방면', '신사 방면'],
-  '우이신설선':  ['북한산우이 방면', '신설동 방면'],
-  '신림선':    ['관악산 방면', '샛강 방면'],
-  '김포골드라인': ['양촌 방면', '김포공항 방면'],
-  '경강선':    ['여주 방면', '판교 방면'],
-  '서해선':    ['원시 방면', '소사 방면'],
-  '인천1호선':  ['계양 방면', '송도달빛축제공원 방면'],
-  '인천2호선':  ['검단오류 방면', '운연 방면'],
-  'GTX-A':   ['운정중앙 방면', '동탄 방면'],
-};
 
 const LIKED_REPORTS_KEY = 'liked_reports';
 const REPORTS_CACHE_KEY = (line: string) => `reports_cache_${line}`;
@@ -100,6 +76,8 @@ export default function CommunityScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [stationSuggestions, setStationSuggestions] = useState<Array<{ station_name: string; line: string }>>([]);
   const [stationSearching, setStationSearching] = useState(false);
+  const [neighborStations, setNeighborStations] = useState<{ prev: string | null; next: string | null }>({ prev: null, next: null });
+  const [neighborLoading, setNeighborLoading] = useState(false);
   const stationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 좋아요
@@ -241,11 +219,28 @@ export default function CommunityScreen() {
     }, 300);
   };
 
+  const fetchNeighborStations = async (stationName: string, line: string) => {
+    setNeighborLoading(true);
+    setNeighborStations({ prev: null, next: null });
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/stations/line_map?line=${encodeURIComponent(line)}`);
+      const data: Array<{ station_name: string; order: number }> = await res.json();
+      const idx = data.findIndex(s => s.station_name === stationName);
+      if (idx === -1) return;
+      setNeighborStations({
+        prev: idx > 0 ? data[idx - 1].station_name : null,
+        next: idx < data.length - 1 ? data[idx + 1].station_name : null,
+      });
+    } catch {}
+    finally { setNeighborLoading(false); }
+  };
+
   const selectStation = (s: { station_name: string; line: string }) => {
     setStation(s.station_name);
     if (s.line !== postLine) setDirection('');
     setPostLine(s.line);
     setStationSuggestions([]);
+    fetchNeighborStations(s.station_name, s.line);
   };
 
   // ─── 제보 작성 ───────────────────────────────────────────────
@@ -294,7 +289,7 @@ export default function CommunityScreen() {
           await AsyncStorage.setItem('my_report_ids', JSON.stringify(ids));
         }
         setIsPostModalOpen(false);
-        setImage(null); setContent(''); setStation(''); setDirection(''); setPostLine(''); setReportStatus(null); setStationSuggestions([]);
+        setImage(null); setContent(''); setStation(''); setDirection(''); setPostLine(''); setReportStatus(null); setStationSuggestions([]); setNeighborStations({ prev: null, next: null });
         await AsyncStorage.removeItem(REPORTS_CACHE_KEY(selectedLine));
         await AsyncStorage.removeItem(REPORTS_CACHE_KEY('전체'));
         fetchReports();
@@ -569,23 +564,31 @@ export default function CommunityScreen() {
                 )}
               </View>
 
-              {/* 방면 선택 — 호선 선택 후 노출 */}
-              {postLine && LINE_DIRECTIONS[postLine] && (
+              {/* 방면 선택 — 역 선택 후 인접역 기반으로 노출 */}
+              {postLine && (neighborLoading || neighborStations.prev || neighborStations.next) && (
                 <View style={styles.directionRow}>
-                  {LINE_DIRECTIONS[postLine].map((d) => (
-                    <TouchableOpacity
-                      key={d}
-                      onPress={() => setDirection(direction === d ? '' : d)}
-                      style={[
-                        styles.directionChip,
-                        direction === d && { backgroundColor: getLineColor(postLine), borderColor: getLineColor(postLine) },
-                      ]}
-                    >
-                      <ThemedText style={[styles.directionChipText, direction === d && { color: 'white', fontWeight: '700' }]}>
-                        {d}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
+                  {neighborLoading ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 8 }} />
+                  ) : (
+                    [neighborStations.prev, neighborStations.next].filter(Boolean).map((d) => {
+                      const label = `${d!.replace(/역$/, '')} 방면`;
+                      const selected = direction === label;
+                      return (
+                        <TouchableOpacity
+                          key={d}
+                          onPress={() => setDirection(selected ? '' : label)}
+                          style={[
+                            styles.directionChip,
+                            selected && { backgroundColor: getLineColor(postLine), borderColor: getLineColor(postLine) },
+                          ]}
+                        >
+                          <ThemedText style={[styles.directionChipText, selected && { color: 'white', fontWeight: '700' }]}>
+                            {label}
+                          </ThemedText>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
                 </View>
               )}
 
