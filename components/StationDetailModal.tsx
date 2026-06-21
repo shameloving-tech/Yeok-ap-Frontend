@@ -225,6 +225,7 @@ export const StationDetailModal: React.FC<Props> = ({
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              style={{ height: 205 }}
               contentContainerStyle={styles.chartScroll}
             >
               <View style={styles.chart}>
@@ -313,10 +314,10 @@ const styles = StyleSheet.create({
   chartEmpty: { paddingVertical: 30, alignItems: 'center', gap: 8 },
   chartEmptyText: { fontSize: 14, color: COLORS.textSub },
 
-  chartScroll: { paddingHorizontal: 20, paddingBottom: 8, paddingTop: 16 },
+  chartScroll: { paddingHorizontal: 20, paddingBottom: 4 },
   chart: { flexDirection: 'row', alignItems: 'flex-start' },
   barColumn: { width: 30, alignItems: 'center', marginRight: 2 },
-  barValue: { fontSize: 8, color: COLORS.textSub, marginBottom: 2, height: 11 },
+  barValue: { fontSize: 8, color: COLORS.textSub, marginBottom: 2, marginTop: 12 },
   barWrapper: {
     width: 14, height: 120,
     justifyContent: 'flex-end',
