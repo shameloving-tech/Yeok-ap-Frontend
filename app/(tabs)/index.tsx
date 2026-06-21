@@ -250,12 +250,6 @@ export default function HomeScreen() {
     { id: 'more', name: '더보기', icon: 'grid', type: 'Ionicons' },
   ];
 
-  const handleNearbyStationPress = async () => {
-    if (nearestStation) {
-      await saveRecentStation(nearestStation);
-      router.push('/(tabs)/search');
-    }
-  };
 
   return (
     <View style={styles.container}>
