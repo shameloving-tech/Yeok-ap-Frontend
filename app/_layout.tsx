@@ -22,33 +22,17 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [appIsReady, setAppIsReady] = useState(false);
   const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
   const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
-    async function prepare() {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      } catch (e) {
-        console.warn(e);
-      } finally {
-        setAppIsReady(true);
-      }
-    }
-    prepare();
+    SplashScreen.hideAsync().catch(() => {});
+    const timer = setTimeout(() => {
+      setIsExiting(true);
+      setTimeout(() => setShowAnimatedSplash(false), 500);
+    }, 2500);
+    return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (appIsReady) {
-      SplashScreen.hideAsync().catch(() => {});
-      const timer = setTimeout(() => {
-        setIsExiting(true);
-        setTimeout(() => setShowAnimatedSplash(false), 500);
-      }, 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [appIsReady]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
