@@ -66,6 +66,7 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
   const [arrivals, setArrivals] = useState<ArrivalItem[]>([]);
   const [arrivalsLoading, setArrivalsLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
 
   const isUnsupported = lineName ? UNSUPPORTED_CONGESTION_LINES.has(lineName) : false;
 
@@ -78,6 +79,7 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
     setArrivals([]);
     setFetchError(false);
     setSearchText('');
+    setViewMode('map');
     fetch(`${BASE_URL}/api/v1/stations/line_map?line=${encodeURIComponent(lineName)}`)
       .then(r => { if (!r.ok) throw new Error('api'); return r.json(); })
       .then((data: any[]) => {
@@ -159,6 +161,15 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
               {loading ? '불러오는 중...' : `실시간 ${liveCount}개 · 총 ${stations.length}개 역`}
             </ThemedText>
           </View>
+          {stations.length > 0 && (
+            <TouchableOpacity
+              onPress={() => { setViewMode(m => m === 'map' ? 'list' : 'map'); setSearchText(''); }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.viewModeBtn}
+            >
+              <Ionicons name={viewMode === 'map' ? 'list' : 'map-outline'} size={20} color={lineColor} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="close" size={24} color={COLORS.textMain} />
           </TouchableOpacity>
@@ -239,12 +250,45 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
           </View>
         )}
 
-        {/* 노선도 맵 — 검색 중에는 숨김 */}
-        {!isSearching && loading ? (
+        {/* 리스트뷰 모드 */}
+        {viewMode === 'list' && !isSearching && stations.length > 0 && (
+          <ScrollView style={styles.listView} keyboardShouldPersistTaps="handled">
+            {stations.map((s, idx) => {
+              const level = s.congestion_level as string | null;
+              const dotColor = level ? (LEVEL_COLOR[level] || '#8E8E93') : '#D1D1D6';
+              const isSel = selected === s.station_name;
+              return (
+                <TouchableOpacity
+                  key={s.station_name}
+                  style={[styles.listItem, isSel && { backgroundColor: lineColor + '12' }]}
+                  onPress={() => setSelected(isSel ? null : s.station_name)}
+                  activeOpacity={0.7}
+                >
+                  <ThemedText style={styles.listItemOrder}>{idx + 1}</ThemedText>
+                  <View style={[styles.listItemDot, { backgroundColor: dotColor }]} />
+                  <ThemedText style={[styles.listItemName, isSel && { color: lineColor, fontWeight: '700' }]}>
+                    {s.station_name}
+                  </ThemedText>
+                  {level ? (
+                    <View style={[styles.listItemBadge, { backgroundColor: dotColor + '22' }]}>
+                      <ThemedText style={[styles.listItemLevel, { color: dotColor }]}>{level}</ThemedText>
+                    </View>
+                  ) : (
+                    <ThemedText style={styles.listItemNoData}>-</ThemedText>
+                  )}
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.textSub} />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {/* 노선도 맵 — 검색 중이거나 리스트뷰일 때 숨김 */}
+        {viewMode === 'map' && !isSearching && loading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={lineColor} size="large" />
           </View>
-        ) : !isSearching && fetchError ? (
+        ) : viewMode === 'map' && !isSearching && fetchError ? (
           <View style={styles.loadingBox}>
             <Ionicons name="cloud-offline-outline" size={36} color={COLORS.textSub} />
             <ThemedText style={styles.emptyText}>데이터를 불러올 수 없습니다</ThemedText>
@@ -255,12 +299,12 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
               <ThemedText style={[styles.retryText, { color: lineColor }]}>다시 시도</ThemedText>
             </TouchableOpacity>
           </View>
-        ) : !isSearching && stations.length === 0 ? (
+        ) : viewMode === 'map' && !isSearching && stations.length === 0 ? (
           <View style={styles.loadingBox}>
             <Ionicons name="map-outline" size={36} color={COLORS.textSub} />
             <ThemedText style={styles.emptyText}>노선 정보를 불러올 수 없습니다</ThemedText>
           </View>
-        ) : !isSearching ? (
+        ) : viewMode === 'map' && !isSearching ? (
           <ScrollView
             ref={scrollRef}
             horizontal
@@ -545,6 +589,32 @@ const styles = StyleSheet.create({
   // Retry button
   retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.surfaceSecondary },
   retryText: { fontSize: 14, fontWeight: '600' },
+
+  // View mode toggle button
+  viewModeBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceSecondary ?? '#F2F2F7',
+    marginRight: 4,
+  },
+
+  // List view
+  listView: { maxHeight: MAP_H + 80 },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.divider,
+  },
+  listItemOrder: { fontSize: 11, color: COLORS.textSub, width: 22, textAlign: 'right' },
+  listItemDot: { width: 12, height: 12, borderRadius: 6 },
+  listItemName: { flex: 1, fontSize: 15, fontWeight: '600', color: COLORS.textMain },
+  listItemBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  listItemLevel: { fontSize: 11, fontWeight: '600' },
+  listItemNoData: { fontSize: 12, color: COLORS.textSub, marginRight: 4 },
 
   // Search bar
   searchBar: {
