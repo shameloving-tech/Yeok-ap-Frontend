@@ -400,8 +400,7 @@ export default function CommunityScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}><ActivityIndicator color={COLORS.primary} /></View>
-      ) : (
-        {(() => {
+      ) : (() => {
           const popularItems = [...reports]
             .filter(r => r.likes_count >= 1 || r.comments_count >= 2)
             .sort((a, b) => hotScore(b) - hotScore(a))
@@ -454,7 +453,6 @@ export default function CommunityScreen() {
             </ScrollView>
           );
         })()}
-      )}
     </View>
   );
 
