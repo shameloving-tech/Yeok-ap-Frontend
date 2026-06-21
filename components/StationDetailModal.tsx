@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   chartEmptyText: { fontSize: 14, color: COLORS.textSub },
 
   chartScroll: { paddingHorizontal: 20, paddingBottom: 8 },
-  chart: { flexDirection: 'row', alignItems: 'flex-end', height: 180 },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', height: 190 },
   barColumn: { width: 30, alignItems: 'center', marginRight: 2 },
   barValue: { fontSize: 8, color: COLORS.textSub, marginBottom: 2, height: 11 },
   barWrapper: {
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   bar: { width: '100%', borderRadius: 4 },
-  barLabelWrap: { height: 36, justifyContent: 'flex-start', alignItems: 'center', marginTop: 4, overflow: 'visible' },
+  barLabelWrap: { height: 40, paddingTop: 10, alignItems: 'center', marginTop: 4 },
   barLabel: {
     fontSize: 8,
     color: COLORS.textSub,
