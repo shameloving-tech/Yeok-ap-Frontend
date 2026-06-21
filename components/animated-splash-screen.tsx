@@ -34,7 +34,7 @@ const SubwayCharacter = () => {
 
   return (
     <View style={styles.characterContainer}>
-      <Svg width="160" height="180" viewBox="0 0 160 180">
+      <Svg width="104" height="117" viewBox="0 0 160 180">
         {/* Body Outline */}
         <Rect
           x="20"
@@ -95,13 +95,13 @@ const SubwayCharacter = () => {
       {/* Wheels - Positioned to overlap the bottom edge */}
       <View style={styles.wheelsContainer}>
         <Animated.View style={[styles.wheel, wheelStyle]}>
-          <Svg width="34" height="34" viewBox="0 0 34 34">
+          <Svg width="22" height="22" viewBox="0 0 34 34">
             <Circle cx="17" cy="17" r="15" fill="#1E3A5F" />
             <Path d="M17 6 V12 M17 22 V28 M6 17 H12 M22 17 H28" stroke="white" strokeWidth="2.5" strokeLinecap="round" opacity="0.6" />
           </Svg>
         </Animated.View>
         <Animated.View style={[styles.wheel, wheelStyle]}>
-          <Svg width="34" height="34" viewBox="0 0 34 34">
+          <Svg width="22" height="22" viewBox="0 0 34 34">
             <Circle cx="17" cy="17" r="15" fill="#1E3A5F" />
             <Path d="M17 6 V12 M17 22 V28 M6 17 H12 M22 17 H28" stroke="white" strokeWidth="2.5" strokeLinecap="round" opacity="0.6" />
           </Svg>
@@ -177,33 +177,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   characterContainer: {
-    width: 160,
-    height: 180,
+    width: 104,
+    height: 117,
     alignItems: 'center',
   },
   badgeTextContainer: {
     position: 'absolute',
-    top: 20,
-    width: 70,
-    height: 30,
+    top: 13,
+    width: 46,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   badgeText: {
     color: 'white',
-    fontSize: 12,
+    fontSize: 8,
     fontWeight: 'bold',
   },
   wheelsContainer: {
     position: 'absolute',
-    bottom: 10,
+    bottom: 7,
     flexDirection: 'row',
-    width: 90,
+    width: 58,
     justifyContent: 'space-between',
     paddingHorizontal: 0,
   },
   wheel: {
-    width: 34,
-    height: 34,
+    width: 22,
+    height: 22,
   },
 });
