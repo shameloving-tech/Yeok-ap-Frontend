@@ -34,7 +34,7 @@ interface Props {
 }
 
 type TimelinePoint = { time: string; value: number; level: string };
-type ArrivalItem = { seconds: number; message: string; direction?: string };
+type ArrivalItem = { seconds: number; message: string; destination?: string; updn?: number };
 
 const LEVEL_COLOR = (level: string) => {
   switch (level) {
@@ -102,7 +102,24 @@ export const StationDetailModal: React.FC<Props> = ({
   };
 
   const maxValue = Math.max(...timeline.map((t) => t.value), 100);
-  const nextTrain = arrivals[0];
+
+  // updn(0=상행/내선, 1=하행/외선) 기준으로 방향별 첫 열차만 추출
+  const directionGroups: ArrivalItem[] = (() => {
+    const seen = new Set<number>();
+    const groups: ArrivalItem[] = [];
+    for (const a of arrivals) {
+      const key = a.updn ?? 99;
+      if (!seen.has(key)) {
+        seen.add(key);
+        groups.push(a);
+      }
+      if (groups.length >= 2) break;
+    }
+    return groups;
+  })();
+
+  // 방향별 첫 열차에 이미 표시된 것 제외한 추가 열차
+  const extraArrivals = arrivals.filter(a => !directionGroups.includes(a)).slice(0, 4);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -127,29 +144,40 @@ export const StationDetailModal: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
 
-          {/* 열차 도착 + 혼잡도 카드 */}
+          {/* 열차 도착 (양방향) + 혼잡도 */}
           <View style={styles.infoRow}>
-            {/* 다음 열차 */}
-            <View style={styles.infoCard}>
+            {/* 양방향 열차 */}
+            <View style={[styles.infoCard, { flex: 2 }]}>
               <View style={styles.infoCardTop}>
                 <Ionicons name="train-outline" size={14} color={COLORS.primary} />
-                <ThemedText style={styles.infoCardLabel}>다음 열차</ThemedText>
+                <ThemedText style={styles.infoCardLabel}>열차 도착</ThemedText>
               </View>
               {loading ? (
-                <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 6 }} />
-              ) : nextTrain ? (
+                <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 8 }} />
+              ) : directionGroups.length === 0 ? (
+                <ThemedText style={styles.arrivalNoData}>{station.arrival_message || '정보없음'}</ThemedText>
+              ) : directionGroups.length === 1 ? (
+                // 단방향
                 <>
-                  <ThemedText style={styles.arrivalTime}>{fmtSec(nextTrain.seconds)}</ThemedText>
-                  {nextTrain.direction ? (
-                    <ThemedText style={styles.arrivalDir} numberOfLines={1}>{nextTrain.direction} 방면</ThemedText>
+                  <ThemedText style={styles.arrivalTime}>{fmtSec(directionGroups[0].seconds)}</ThemedText>
+                  {directionGroups[0].destination ? (
+                    <ThemedText style={styles.arrivalDir} numberOfLines={1}>{directionGroups[0].destination}행</ThemedText>
                   ) : station.arrival_message ? (
-                    <ThemedText style={styles.arrivalDir} numberOfLines={2}>{station.arrival_message}</ThemedText>
+                    <ThemedText style={styles.arrivalDir} numberOfLines={1}>{station.arrival_message}</ThemedText>
                   ) : null}
                 </>
               ) : (
-                <ThemedText style={styles.arrivalNoData}>
-                  {station.arrival_message || '정보없음'}
-                </ThemedText>
+                // 양방향
+                <View style={styles.directionPair}>
+                  {directionGroups.map((d, i) => (
+                    <View key={i} style={[styles.directionItem, i > 0 && styles.directionItemBorder]}>
+                      <ThemedText style={styles.directionDest} numberOfLines={1}>
+                        {d.destination ? `${d.destination}행` : (d.updn === 0 ? '상행' : '하행')}
+                      </ThemedText>
+                      <ThemedText style={styles.directionTime}>{fmtSec(d.seconds)}</ThemedText>
+                    </View>
+                  ))}
+                </View>
               )}
             </View>
 
@@ -167,14 +195,16 @@ export const StationDetailModal: React.FC<Props> = ({
             </View>
           </View>
 
-          {/* 이후 도착 열차 */}
-          {arrivals.length > 1 && (
+          {/* 이후 도착 열차 칩 (방향별 추가 열차) */}
+          {extraArrivals.length > 0 && (
             <View style={styles.nextArrivalsRow}>
-              {arrivals.slice(1, 3).map((a, i) => (
+              {extraArrivals.map((a, i) => (
                 <View key={i} style={styles.nextArrivalChip}>
                   <Ionicons name="time-outline" size={11} color={COLORS.textSub} />
                   <ThemedText style={styles.nextArrivalText}>{fmtSec(a.seconds)}</ThemedText>
-                  {a.direction ? <ThemedText style={styles.nextArrivalDir}>{a.direction}</ThemedText> : null}
+                  {a.destination ? (
+                    <ThemedText style={styles.nextArrivalDir}>{a.destination}</ThemedText>
+                  ) : null}
                 </View>
               ))}
             </View>
@@ -266,6 +296,12 @@ const styles = StyleSheet.create({
   },
   nextArrivalText: { fontSize: 11, color: COLORS.textSub, fontWeight: '600' },
   nextArrivalDir: { fontSize: 10, color: COLORS.textSub },
+
+  directionPair: { flexDirection: 'row', marginTop: 4 },
+  directionItem: { flex: 1, paddingRight: 6 },
+  directionItemBorder: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#E0E0E0', paddingLeft: 10, paddingRight: 0 },
+  directionDest: { fontSize: 11, color: COLORS.textSub, fontWeight: '700', marginBottom: 3 },
+  directionTime: { fontSize: 15, fontWeight: '800', color: COLORS.primary },
 
   chartTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textMain, marginTop: 12, marginBottom: 10, paddingHorizontal: 20 },
   chartLoading: { paddingVertical: 40, alignItems: 'center' },
