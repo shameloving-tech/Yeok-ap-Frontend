@@ -53,6 +53,12 @@ const fmtSec = (sec: number) => {
   return m > 0 ? `${m}분 ${s}초 후` : `${s}초 후`;
 };
 
+const dirLabel = (lineName: string, updn?: number): string => {
+  if (updn === undefined || updn === null) return '';
+  if (lineName === '2호선') return updn === 0 ? '내선순환' : '외선순환';
+  return updn === 0 ? '상행' : '하행';
+};
+
 export const StationDetailModal: React.FC<Props> = ({
   visible,
   station,
@@ -155,25 +161,21 @@ export const StationDetailModal: React.FC<Props> = ({
               {loading ? (
                 <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 8 }} />
               ) : directionGroups.length === 0 ? (
-                <ThemedText style={styles.arrivalNoData}>{station.arrival_message || '정보없음'}</ThemedText>
-              ) : directionGroups.length === 1 ? (
-                // 단방향
-                <>
-                  <ThemedText style={styles.arrivalTime}>{fmtSec(directionGroups[0].seconds)}</ThemedText>
-                  {directionGroups[0].destination ? (
-                    <ThemedText style={styles.arrivalDir} numberOfLines={1}>{directionGroups[0].destination}행</ThemedText>
-                  ) : station.arrival_message ? (
-                    <ThemedText style={styles.arrivalDir} numberOfLines={1}>{station.arrival_message}</ThemedText>
-                  ) : null}
-                </>
+                <ThemedText style={styles.arrivalNoData}>정보없음</ThemedText>
               ) : (
-                // 양방향
                 <View style={styles.directionPair}>
                   {directionGroups.map((d, i) => (
                     <View key={i} style={[styles.directionItem, i > 0 && styles.directionItemBorder]}>
-                      <ThemedText style={styles.directionDest} numberOfLines={1}>
-                        {d.destination ? `${d.destination}행` : (d.updn === 0 ? '상행' : '하행')}
-                      </ThemedText>
+                      <View style={styles.directionHeader}>
+                        {dirLabel(station.line_name, d.updn) ? (
+                          <View style={styles.dirLabelBadge}>
+                            <ThemedText style={styles.dirLabelText}>{dirLabel(station.line_name, d.updn)}</ThemedText>
+                          </View>
+                        ) : null}
+                        {d.destination ? (
+                          <ThemedText style={styles.directionDest} numberOfLines={1}>{d.destination}행</ThemedText>
+                        ) : null}
+                      </View>
                       <ThemedText style={styles.directionTime}>{fmtSec(d.seconds)}</ThemedText>
                     </View>
                   ))}
@@ -297,10 +299,13 @@ const styles = StyleSheet.create({
   nextArrivalText: { fontSize: 11, color: COLORS.textSub, fontWeight: '600' },
   nextArrivalDir: { fontSize: 10, color: COLORS.textSub },
 
-  directionPair: { flexDirection: 'row', marginTop: 4 },
+  directionPair: { flexDirection: 'row', marginTop: 4, width: '100%' },
   directionItem: { flex: 1, paddingRight: 6 },
   directionItemBorder: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#E0E0E0', paddingLeft: 10, paddingRight: 0 },
-  directionDest: { fontSize: 11, color: COLORS.textSub, fontWeight: '700', marginBottom: 3 },
+  directionHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4, flexWrap: 'wrap' },
+  dirLabelBadge: { backgroundColor: COLORS.primary + '18', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  dirLabelText: { fontSize: 10, color: COLORS.primary, fontWeight: '700' },
+  directionDest: { fontSize: 11, color: COLORS.textSub, fontWeight: '600' },
   directionTime: { fontSize: 15, fontWeight: '800', color: COLORS.primary },
 
   chartTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textMain, marginTop: 12, marginBottom: 10, paddingHorizontal: 20 },
@@ -308,8 +313,8 @@ const styles = StyleSheet.create({
   chartEmpty: { paddingVertical: 30, alignItems: 'center', gap: 8 },
   chartEmptyText: { fontSize: 14, color: COLORS.textSub },
 
-  chartScroll: { paddingHorizontal: 20, paddingBottom: 8 },
-  chart: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 14 },
+  chartScroll: { paddingHorizontal: 20, paddingBottom: 8, paddingTop: 16 },
+  chart: { flexDirection: 'row', alignItems: 'flex-start' },
   barColumn: { width: 30, alignItems: 'center', marginRight: 2 },
   barValue: { fontSize: 8, color: COLORS.textSub, marginBottom: 2, height: 11 },
   barWrapper: {
