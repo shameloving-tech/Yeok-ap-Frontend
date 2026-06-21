@@ -9,9 +9,10 @@ import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
-  Dimensions
+  Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,6 +66,8 @@ export default function HomeScreen() {
   const [trainSheetOpen, setTrainSheetOpen] = useState(false);
   const [congestionLine, setCongestionLine] = useState<string | null>(null);
   const [favRoutes, setFavRoutes] = useState<FavoriteRoute[]>([]);
+  const [stationSearchOpen, setStationSearchOpen] = useState(false);
+  const [stationSearchQuery, setStationSearchQuery] = useState('');
 
   const openStationDetail = (station: any) => setDetailStation(station);
 
@@ -207,6 +210,12 @@ export default function HomeScreen() {
     );
   }, [processedLines, searchQuery]);
 
+  const stationSearchResults = useMemo(() => {
+    const q = stationSearchQuery.trim();
+    if (!q) return [];
+    return stationList.filter(s => s.station_name.includes(q)).slice(0, 30);
+  }, [stationList, stationSearchQuery]);
+
   const toggleFollow = async (id: string) => {
     const updated = followedLines.includes(id)
       ? followedLines.filter(l => l !== id)
@@ -258,7 +267,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.headerRight}>
             <View style={[styles.connectionDot, { backgroundColor: isConnected ? '#34C759' : '#FF3B30' }]} />
-            <TouchableOpacity style={styles.headerIcon}>
+            <TouchableOpacity style={styles.headerIcon} onPress={() => setStationSearchOpen(true)}>
               <Ionicons name="search" size={24} color={COLORS.textMain} />
             </TouchableOpacity>
           </View>
@@ -555,6 +564,75 @@ export default function HomeScreen() {
         <Ionicons name="train" size={24} color="white" />
       </TouchableOpacity>
 
+      {/* 역 빠른 검색 모달 */}
+      {stationSearchOpen && (
+        <View style={[StyleSheet.absoluteFill, styles.stationSearchOverlay, { paddingTop: insets.top }]}>
+          <View style={styles.stationSearchHeader}>
+            <View style={styles.stationSearchInputWrap}>
+              <Ionicons name="search" size={18} color={COLORS.textSub} style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.stationSearchInput}
+                placeholder="역 이름 검색 (예: 당산, 홍대입구)"
+                placeholderTextColor={COLORS.textSub}
+                value={stationSearchQuery}
+                onChangeText={setStationSearchQuery}
+                autoFocus
+                returnKeyType="search"
+              />
+            </View>
+            <TouchableOpacity
+              onPress={() => { setStationSearchOpen(false); setStationSearchQuery(''); }}
+              style={{ paddingLeft: 8 }}
+            >
+              <ThemedText style={styles.stationSearchCancel}>취소</ThemedText>
+            </TouchableOpacity>
+          </View>
+
+          {stationSearchQuery.trim().length === 0 ? (
+            <View style={styles.stationSearchEmpty}>
+              <Ionicons name="train-outline" size={48} color={COLORS.textSub} />
+              <ThemedText style={styles.stationSearchEmptyText}>역 이름을 입력하면{'\n'}바로 도착 정보를 볼 수 있어요</ThemedText>
+            </View>
+          ) : stationSearchResults.length === 0 ? (
+            <View style={styles.stationSearchEmpty}>
+              <Ionicons name="search-outline" size={36} color={COLORS.textSub} />
+              <ThemedText style={styles.stationSearchEmptyText}>검색 결과가 없습니다</ThemedText>
+            </View>
+          ) : (
+            <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+              {stationSearchResults.map((station, idx) => (
+                <TouchableOpacity
+                  key={`${station.station_name}-${station.line_name}-${idx}`}
+                  style={styles.stationSearchResultRow}
+                  onPress={() => {
+                    setStationSearchOpen(false);
+                    setStationSearchQuery('');
+                    openStationDetail(station);
+                    saveRecentStation(station);
+                  }}
+                >
+                  <View style={[styles.stationSearchLineBadge, { backgroundColor: getLineColor(station.line_name) }]}>
+                    <ThemedText style={styles.stationSearchLineBadgeText}>{getLineNumber(station.line_name)}</ThemedText>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={styles.stationSearchResultName}>{station.station_name}</ThemedText>
+                    <ThemedText style={styles.stationSearchResultLine}>{station.line_name}</ThemedText>
+                  </View>
+                  {station.congestion_level ? (
+                    <View style={[styles.stationSearchLevelBadge, { backgroundColor: getStatusColor(station.congestion_level) + '22' }]}>
+                      <ThemedText style={[styles.stationSearchLevelText, { color: getStatusColor(station.congestion_level) }]}>
+                        {station.congestion_level}
+                      </ThemedText>
+                    </View>
+                  ) : null}
+                  <Ionicons name="chevron-forward" size={16} color="#C7C7CC" style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      )}
+
       <TrainLocationSheet visible={trainSheetOpen} onClose={() => setTrainSheetOpen(false)} />
 
       <LineMapModal
@@ -774,4 +852,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...SHADOW.lg,
   },
+
+  stationSearchOverlay: {
+    backgroundColor: COLORS.background,
+    zIndex: 100,
+  },
+  stationSearchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
+  },
+  stationSearchInputWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.searchBg,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  stationSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.textMain,
+  },
+  stationSearchCancel: { fontSize: 15, color: COLORS.primary, fontWeight: '600' },
+  stationSearchEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingBottom: 80 },
+  stationSearchEmptyText: { fontSize: 15, color: COLORS.textSub, textAlign: 'center', lineHeight: 22 },
+  stationSearchResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: 'white',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.divider,
+    gap: 12,
+  },
+  stationSearchLineBadge: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  stationSearchLineBadgeText: { color: 'white', fontSize: 13, fontWeight: '700' },
+  stationSearchResultName: { fontSize: 16, fontWeight: '600', color: COLORS.textMain },
+  stationSearchResultLine: { fontSize: 12, color: COLORS.textSub, marginTop: 2 },
+  stationSearchLevelBadge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
+  stationSearchLevelText: { fontSize: 11, fontWeight: '700' },
 });
