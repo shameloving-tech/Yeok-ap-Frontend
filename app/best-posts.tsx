@@ -27,6 +27,12 @@ const SORT_TABS: { key: SortType; label: string }[] = [
   { key: 'line',     label: '호선별 🚇' },
 ];
 
+// HN-style: score = (likes*3 + comments*1.5 + 1) / (age_h + 2)^1.5
+const hotScore = (r: any): number => {
+  const ageH = Math.max((Date.now() - new Date(r.created_at).getTime()) / 3_600_000, 0.01);
+  return (r.likes_count * 3 + r.comments_count * 1.5 + 1) / Math.pow(ageH + 2, 1.5);
+};
+
 const getTimeAgo = (createdAt: string): string => {
   const diffMs = Date.now() - new Date(createdAt).getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -60,7 +66,8 @@ export default function BestPostsScreen() {
     if (isRefresh) setRefreshing(true);
     setFetchError(false);
     try {
-      const res = await fetch(`${BASE_URL}/reports`, { headers: { Accept: 'application/json' } });
+      // 항상 /reports/best — 48h 윈도우 + 참여도 필터 + 서버 사전 정렬
+      const res = await fetch(`${BASE_URL}/reports/best`, { headers: { Accept: 'application/json' } });
       if (res.ok) setReports(await res.json());
       else setFetchError(true);
     } catch { setFetchError(true); }
@@ -69,7 +76,7 @@ export default function BestPostsScreen() {
 
   const sorted = useMemo(() => {
     const arr = [...reports];
-    if (sort === 'hot')      return arr.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
+    if (sort === 'hot')      return arr.sort((a, b) => hotScore(b) - hotScore(a));
     if (sort === 'comments') return arr.sort((a, b) => (b.comments_count || 0) - (a.comments_count || 0));
     return arr.sort((a, b) => a.line_name.localeCompare(b.line_name, 'ko'));
   }, [reports, sort]);
@@ -221,8 +228,11 @@ export default function BestPostsScreen() {
           }
           ListEmptyComponent={
             <View style={styles.loading}>
-              <Ionicons name="document-text-outline" size={40} color={COLORS.textSub} />
-              <ThemedText style={{ color: COLORS.textSub, fontSize: 14, marginTop: 12 }}>게시글이 없습니다</ThemedText>
+              <Ionicons name="trophy-outline" size={44} color={COLORS.textSub} />
+              <ThemedText style={{ color: COLORS.textSub, fontSize: 15, fontWeight: '700', marginTop: 14 }}>아직 베스트글이 없어요</ThemedText>
+              <ThemedText style={{ color: COLORS.textSub, fontSize: 13, marginTop: 6, textAlign: 'center', lineHeight: 19 }}>
+                {'좋아요 1개 이상 또는 댓글 2개 이상,\n48시간 이내 글이 베스트에 진입해요'}
+              </ThemedText>
             </View>
           }
         />

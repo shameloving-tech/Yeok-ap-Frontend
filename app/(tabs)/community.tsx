@@ -41,6 +41,11 @@ const SUBWAY_LINES = [
 const LIKED_REPORTS_KEY = 'liked_reports';
 const REPORTS_CACHE_KEY = (line: string) => `reports_cache_${line}`;
 
+const hotScore = (r: any): number => {
+  const ageH = Math.max((Date.now() - new Date(r.created_at).getTime()) / 3_600_000, 0.01);
+  return (r.likes_count * 3 + r.comments_count * 1.5 + 1) / Math.pow(ageH + 2, 1.5);
+};
+
 const getTimeAgo = (createdAt: string): string => {
   const diffMs = Date.now() - new Date(createdAt).getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -396,40 +401,59 @@ export default function CommunityScreen() {
       {loading ? (
         <View style={styles.loadingContainer}><ActivityIndicator color={COLORS.primary} /></View>
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.popularScroll}>
-          {[...reports].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0)).slice(0, 3).map((item: any) => {
-            const isLiked = likedReports.has(item.id);
+        {(() => {
+          const popularItems = [...reports]
+            .filter(r => r.likes_count >= 1 || r.comments_count >= 2)
+            .sort((a, b) => hotScore(b) - hotScore(a))
+            .slice(0, 5);
+
+          if (popularItems.length === 0) {
             return (
-              <TouchableOpacity key={item.id} activeOpacity={0.85} onPress={() => router.push(`/report/${item.id}`)} style={styles.popularCard}>
-                <View style={styles.cardHeaderRow}>
-                  <View style={styles.hotBadge}><ThemedText style={styles.hotText}>HOT</ThemedText></View>
-                  <View style={[styles.circleLineIconSmall, { backgroundColor: getLineColor(item.line_name) }]}>
-                    <ThemedText style={styles.circleLineTextSmall}>{getLineNumber(item.line_name)}</ThemedText>
-                  </View>
-                  <ThemedText style={styles.cardMeta}>{item.station_name} · {getTimeAgo(item.created_at)} · {item.nickname || '익명'}</ThemedText>
-                </View>
-                <ThemedText style={styles.popularCardTitle} numberOfLines={1}>{item.content.split('\n')[0]}</ThemedText>
-                <ThemedText style={styles.popularCardBody} numberOfLines={2}>{item.content}</ThemedText>
-                <View style={styles.cardStats}>
-                  <TouchableOpacity style={styles.statBtn} onPress={(e) => { e.stopPropagation(); handleLike(item.id); }}>
-                    <Ionicons
-                      name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
-                      size={14}
-                      color={isLiked ? COLORS.primary : COLORS.textSub}
-                    />
-                    <ThemedText style={[styles.statText, isLiked && styles.statTextActive]}>
-                      {item.likes_count || 0}
-                    </ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.statBtn} onPress={() => router.push(`/report/${item.id}`)}>
-                    <Ionicons name="chatbubble-outline" size={14} color={COLORS.textSub} />
-                    <ThemedText style={styles.statText}>{item.comments_count || 0}</ThemedText>
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
+              <View style={styles.popularEmpty}>
+                <Ionicons name="flame-outline" size={32} color={COLORS.textSub} />
+                <ThemedText style={styles.popularEmptyText}>아직 인기 글이 없어요</ThemedText>
+                <ThemedText style={styles.popularEmptySubText}>좋아요를 받은 글이 여기에 나타나요</ThemedText>
+              </View>
             );
-          })}
-        </ScrollView>
+          }
+
+          return (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.popularScroll}>
+              {popularItems.map((item: any) => {
+                const isLiked = likedReports.has(item.id);
+                return (
+                  <TouchableOpacity key={item.id} activeOpacity={0.85} onPress={() => router.push(`/report/${item.id}`)} style={styles.popularCard}>
+                    <View style={styles.cardHeaderRow}>
+                      <View style={styles.hotBadge}><ThemedText style={styles.hotText}>HOT</ThemedText></View>
+                      <View style={[styles.circleLineIconSmall, { backgroundColor: getLineColor(item.line_name) }]}>
+                        <ThemedText style={styles.circleLineTextSmall}>{getLineNumber(item.line_name)}</ThemedText>
+                      </View>
+                      <ThemedText style={styles.cardMeta}>{item.station_name} · {getTimeAgo(item.created_at)} · {item.nickname || '익명'}</ThemedText>
+                    </View>
+                    <ThemedText style={styles.popularCardTitle} numberOfLines={1}>{item.content.split('\n')[0]}</ThemedText>
+                    <ThemedText style={styles.popularCardBody} numberOfLines={2}>{item.content}</ThemedText>
+                    <View style={styles.cardStats}>
+                      <TouchableOpacity style={styles.statBtn} onPress={(e) => { e.stopPropagation(); handleLike(item.id); }}>
+                        <Ionicons
+                          name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
+                          size={14}
+                          color={isLiked ? COLORS.primary : COLORS.textSub}
+                        />
+                        <ThemedText style={[styles.statText, isLiked && styles.statTextActive]}>
+                          {item.likes_count || 0}
+                        </ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.statBtn} onPress={() => router.push(`/report/${item.id}`)}>
+                        <Ionicons name="chatbubble-outline" size={14} color={COLORS.textSub} />
+                        <ThemedText style={styles.statText}>{item.comments_count || 0}</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          );
+        })()}
       )}
     </View>
   );
@@ -736,6 +760,9 @@ const styles = StyleSheet.create({
   filterSeparator: { width: StyleSheet.hairlineWidth, height: 16, backgroundColor: COLORS.border, marginHorizontal: 4 },
   chipDot: { width: 6, height: 6, borderRadius: 3, marginRight: 5 },
 
+  popularEmpty: { alignItems: 'center', paddingVertical: 28, gap: 6, marginHorizontal: 20 },
+  popularEmptyText: { fontSize: 14, fontWeight: '700', color: COLORS.textSub },
+  popularEmptySubText: { fontSize: 12, color: COLORS.textSub },
   popularScroll: { paddingHorizontal: 20, gap: 12, paddingBottom: 10 },
   popularCard: { width: width * 0.72, backgroundColor: 'white', borderRadius: 16, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border, ...SHADOW.sm },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
