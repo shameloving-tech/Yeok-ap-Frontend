@@ -70,6 +70,7 @@ export default function CommunityScreen() {
   const [postLine, setPostLine] = useState('');
   const [direction, setDirection] = useState('');
   const [content, setContent] = useState('');
+  const [reportStatus, setReportStatus] = useState<string | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [stationSuggestions, setStationSuggestions] = useState<Array<{ station_name: string; line: string }>>([]);
@@ -233,8 +234,8 @@ export default function CommunityScreen() {
   };
 
   const submitReport = async () => {
-    if (!station.trim() || !content.trim() || !postLine) {
-      Toast.show({ type: 'error', text1: '알림', text2: '호선, 역 이름, 내용을 입력해주세요!' });
+    if (!station.trim() || !content.trim() || !postLine || !reportStatus) {
+      Toast.show({ type: 'error', text1: '알림', text2: '혼잡도, 호선, 역 이름, 내용을 모두 입력해주세요!' });
       return;
     }
     setSubmitting(true);
@@ -245,7 +246,7 @@ export default function CommunityScreen() {
       formData.append('report[station_name]', formattedStation);
       formData.append('report[direction]', direction.trim() || '전체 방면');
       formData.append('report[content]', content);
-      formData.append('report[status]', '혼잡');
+      formData.append('report[status]', reportStatus);
       const nickname = await getOrCreateNickname();
       const token = await getDeviceToken();
       formData.append('report[nickname]', nickname);
@@ -267,7 +268,7 @@ export default function CommunityScreen() {
           await AsyncStorage.setItem('my_report_ids', JSON.stringify(ids));
         }
         setIsPostModalOpen(false);
-        setImage(null); setContent(''); setStation(''); setDirection(''); setPostLine(''); setStationSuggestions([]);
+        setImage(null); setContent(''); setStation(''); setDirection(''); setPostLine(''); setReportStatus(null); setStationSuggestions([]);
         await AsyncStorage.removeItem(REPORTS_CACHE_KEY(selectedLine));
         await AsyncStorage.removeItem(REPORTS_CACHE_KEY('전체'));
         fetchReports();
@@ -473,8 +474,27 @@ export default function CommunityScreen() {
             </View>
 
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {/* 혼잡도 선택 */}
+              <ThemedText style={styles.formSectionLabel}>지금 혼잡도 <ThemedText style={styles.formRequired}>*</ThemedText></ThemedText>
+              <View style={styles.statusRow}>
+                {(['여유', '보통', '혼잡', '폭발'] as const).map((s) => {
+                  const COLOR: Record<string, string> = { '여유': '#34C759', '보통': '#FFCC00', '혼잡': '#FF9500', '폭발': '#FF3B30' };
+                  const selected = reportStatus === s;
+                  return (
+                    <TouchableOpacity
+                      key={s}
+                      onPress={() => setReportStatus(s)}
+                      style={[styles.statusSelectChip, { borderColor: COLOR[s] }, selected && { backgroundColor: COLOR[s] }]}
+                    >
+                      <View style={[styles.statusSelectDot, { backgroundColor: selected ? 'white' : COLOR[s] }]} />
+                      <ThemedText style={[styles.statusSelectText, selected && { color: 'white', fontWeight: '700' }]}>{s}</ThemedText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
               {/* 내용 */}
-              <ThemedText style={styles.formSectionLabel}>제보 내용 <ThemedText style={styles.formRequired}>*</ThemedText></ThemedText>
+              <ThemedText style={[styles.formSectionLabel, { marginTop: 16 }]}>제보 내용 <ThemedText style={styles.formRequired}>*</ThemedText></ThemedText>
               <TextInput
                 style={styles.contentInput}
                 placeholder={"무슨 일이 있나요?\n(예: 3번 출구 에스컬레이터 고장, 열차 지연 등)"}
@@ -741,6 +761,15 @@ const styles = StyleSheet.create({
   formSectionLabel: { fontSize: 15, fontWeight: '700', color: COLORS.textMain, marginBottom: 8, marginTop: 4 },
   formSectionSub: { fontSize: 13, color: COLORS.textSub, marginBottom: 12 },
   formRequired: { color: COLORS.danger, fontSize: 14 },
+
+  statusRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  statusSelectChip: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10, borderRadius: 12, borderWidth: 1.5,
+    backgroundColor: 'white', gap: 5,
+  },
+  statusSelectDot: { width: 7, height: 7, borderRadius: 4 },
+  statusSelectText: { fontSize: 13, fontWeight: '500', color: COLORS.textMain },
 
   stationInputWrap: {
     backgroundColor: 'white', borderRadius: 12, marginBottom: 10,
