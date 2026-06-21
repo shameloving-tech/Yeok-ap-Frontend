@@ -39,7 +39,8 @@ if (typeof global.removeEventListener !== 'function') {
 }
 
 const RECENT_STATIONS_KEY = 'recent_stations';
-const MAX_NEARBY_KM = 5;
+const MAX_NEARBY_KM = 1.5;
+const MAX_LOCATION_AGE_MS = 5 * 60 * 1000;
 
 export const saveRecentStation = async (station: any) => {
   try {
@@ -102,17 +103,20 @@ export default function HomeScreen() {
         return;
       }
 
+      // 5분 이내 캐시만 임시 표시 (오래된 위치는 무시)
       const lastLocation = await Location.getLastKnownPositionAsync({});
-      if (lastLocation) setUserLocation(lastLocation);
+      if (lastLocation && (Date.now() - lastLocation.timestamp) < MAX_LOCATION_AGE_MS) {
+        setUserLocation(lastLocation);
+      }
 
       try {
         const location = await Promise.race([
-          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000)),
         ]) as Location.LocationObject;
         setUserLocation(location);
       } catch {
-        // GPS timeout — keep last known position (may be null if first run)
+        // GPS timeout — keep last known position if available
       }
     } catch {}
     finally {
@@ -131,25 +135,25 @@ export default function HomeScreen() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  const nearestStation = useMemo(() => {
-    if (!userLocation || stationList.length === 0) return null;
-    let minDistance = Infinity;
-    let nearest: any = null;
-    stationList.forEach(station => {
-      const distance = calculateDistance(
-        userLocation.coords.latitude,
-        userLocation.coords.longitude,
-        station.latitude,
-        station.longitude
-      );
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = { ...station, distance };
-      }
-    });
-    if (minDistance > MAX_NEARBY_KM) return null;
-    return nearest;
+  const nearbyStations = useMemo(() => {
+    if (!userLocation || stationList.length === 0) return [];
+    return stationList
+      .map(station => ({
+        ...station,
+        distance: calculateDistance(
+          userLocation.coords.latitude,
+          userLocation.coords.longitude,
+          station.latitude,
+          station.longitude
+        ),
+      }))
+      .filter(s => s.distance <= MAX_NEARBY_KM)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 3);
   }, [userLocation, stationList]);
+
+  const locationAccuracy = userLocation?.coords.accuracy ?? null;
+  const isLowAccuracy = locationAccuracy !== null && locationAccuracy > 200;
 
   const favoriteStationsWithStatus = useMemo(() => {
     return favoriteStations.map(fav => {
@@ -529,23 +533,45 @@ export default function HomeScreen() {
             <View style={styles.nearbyHeader}>
               <Ionicons name="location" size={18} color={COLORS.primary} />
               <ThemedText style={styles.nearbyTitle}>현재 내 주변 역</ThemedText>
-            </View>
-            {nearestStation ? (
-              <View style={styles.nearbyContent}>
-                <View>
-                  <ThemedText style={styles.nearbyStationName}>{nearestStation.station_name}</ThemedText>
-                  <ThemedText style={styles.nearbyStationInfo}>
-                    {nearestStation.line_name} · 도보 {(nearestStation.distance * 15).toFixed(0)}분
+              {locationAccuracy !== null && (
+                <View style={[styles.accuracyBadge, { backgroundColor: isLowAccuracy ? '#FF950020' : '#34C75920' }]}>
+                  <ThemedText style={[styles.accuracyText, { color: isLowAccuracy ? '#FF9500' : '#34C759' }]}>
+                    {isLowAccuracy ? `오차 약 ${Math.round(locationAccuracy)}m` : 'GPS 정확'}
                   </ThemedText>
                 </View>
-                <TouchableOpacity style={styles.routeBtn} onPress={() => openStationDetail(nearestStation)}>
-                  <ThemedText style={styles.routeBtnText}>상세</ThemedText>
-                </TouchableOpacity>
+              )}
+            </View>
+
+            {nearbyStations.length > 0 ? (
+              <View>
+                {nearbyStations.map((station, idx) => (
+                  <TouchableOpacity
+                    key={`${station.station_name}-${station.line_name}`}
+                    style={[styles.nearbyRow, idx < nearbyStations.length - 1 && styles.nearbyRowBorder]}
+                    onPress={() => openStationDetail(station)}
+                  >
+                    <View style={[styles.nearbyLineBadge, { backgroundColor: getLineColor(station.line_name) }]}>
+                      <ThemedText style={styles.nearbyLineBadgeText}>{getLineNumber(station.line_name)}</ThemedText>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={styles.nearbyStationName}>{station.station_name}</ThemedText>
+                      <ThemedText style={styles.nearbyStationInfo}>
+                        {station.line_name} · 도보 약 {Math.round(station.distance * 18)}분
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={styles.nearbyDistText}>
+                      {station.distance < 0.1
+                        ? `${Math.round(station.distance * 1000)}m`
+                        : `${(station.distance * 1000).toFixed(0)}m`}
+                    </ThemedText>
+                    <Ionicons name="chevron-forward" size={16} color="#C7C7CC" style={{ marginLeft: 4 }} />
+                  </TouchableOpacity>
+                ))}
               </View>
             ) : locationLoaded ? (
               <View style={styles.nearbyEmpty}>
                 <Ionicons name="location-outline" size={28} color={COLORS.textSub} />
-                <ThemedText style={styles.nearbyEmptyText}>주변 5km 이내에 지하철역이 없습니다</ThemedText>
+                <ThemedText style={styles.nearbyEmptyText}>주변 1.5km 이내에 지하철역이 없습니다</ThemedText>
               </View>
             ) : (
               <View style={styles.nearbyLoading}>
@@ -773,18 +799,30 @@ const styles = StyleSheet.create({
   nearbyCard: {
     backgroundColor: 'white',
     borderRadius: 18,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 8,
     ...SHADOW.md,
   },
-  nearbyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  nearbyTitle: { fontSize: 15, fontWeight: '600', color: COLORS.textMain, marginLeft: 6 },
-  nearbyContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  nearbyStationName: { fontSize: 20, fontWeight: '700', color: COLORS.textMain },
-  nearbyStationInfo: { fontSize: 13, color: COLORS.textSub, marginTop: 4 },
-  routeBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999 },
-  routeBtnText: { color: 'white', fontSize: 13, fontWeight: '600' },
-  nearbyLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  nearbyEmpty: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  nearbyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 6 },
+  nearbyTitle: { fontSize: 15, fontWeight: '600', color: COLORS.textMain, flex: 1 },
+  accuracyBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  accuracyText: { fontSize: 10, fontWeight: '600' },
+  nearbyRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 12,
+  },
+  nearbyRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.divider,
+  },
+  nearbyLineBadge: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
+  nearbyLineBadgeText: { color: 'white', fontSize: 13, fontWeight: '700' },
+  nearbyStationName: { fontSize: 15, fontWeight: '700', color: COLORS.textMain },
+  nearbyStationInfo: { fontSize: 12, color: COLORS.textSub, marginTop: 2 },
+  nearbyDistText: { fontSize: 13, fontWeight: '600', color: COLORS.textSub },
+  nearbyLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
+  nearbyEmpty: { alignItems: 'center', paddingVertical: 20, gap: 8 },
   nearbyEmptyText: { fontSize: 14, color: COLORS.textSub },
   loadingText: { fontSize: 12, color: COLORS.textSub },
   filterToggle: {
