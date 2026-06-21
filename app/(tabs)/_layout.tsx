@@ -18,17 +18,17 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          height: 60 + insets.bottom,
-          paddingTop: 10,
-          paddingBottom: insets.bottom,
+          height: 62 + insets.bottom,
+          paddingTop: 8,
+          paddingBottom: Math.max(insets.bottom, 10),
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: APP_COLORS.border,
           backgroundColor: 'white',
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-          marginBottom: 6,
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: 2,
         }
       }}>
       <Tabs.Screen
