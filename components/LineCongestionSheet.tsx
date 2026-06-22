@@ -6,6 +6,7 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -64,17 +65,21 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
   const [retryCount, setRetryCount] = useState(0);
   const [arrivals, setArrivals] = useState<ArrivalItem[]>([]);
   const [arrivalsLoading, setArrivalsLoading] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
 
   const isUnsupported = lineName ? UNSUPPORTED_CONGESTION_LINES.has(lineName) : false;
 
   useEffect(() => {
-    if (!lineName || !visible) { setSelected(null); return; }
+    if (!lineName || !visible) { setSelected(null); setSearchText(''); return; }
     let cancelled = false;
     setLoading(true);
     setStations([]);
     setSelected(null);
     setArrivals([]);
     setFetchError(false);
+    setSearchText('');
+    setViewMode('map');
     fetch(`${BASE_URL}/api/v1/stations/line_map?line=${encodeURIComponent(lineName)}`)
       .then(r => { if (!r.ok) throw new Error('api'); return r.json(); })
       .then((data: any[]) => {
@@ -111,6 +116,23 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
   const selectedData = stations.find(s => s.station_name === selected);
   const liveCount    = stations.filter(s => s.congestion_level).length;
 
+  const query = searchText.trim().replace('역', '');
+  const isSearching = query.length > 0;
+  const searchResults = isSearching
+    ? stations.filter(s => s.station_name.replace('역', '').includes(query))
+    : [];
+
+  const handleSearchSelect = (stationName: string) => {
+    const idx = stations.findIndex(s => s.station_name === stationName);
+    setSelected(stationName);
+    setSearchText('');
+    if (idx > 2) {
+      setTimeout(() => scrollRef.current?.scrollTo({ x: (idx - 2) * ITEM_W, animated: true }), 150);
+    } else {
+      setTimeout(() => scrollRef.current?.scrollTo({ x: 0, animated: true }), 150);
+    }
+  };
+
   const formatSeconds = (sec: number) => {
     if (sec <= 30) return '곧 도착';
     if (sec < 60) return `${sec}초`;
@@ -139,6 +161,15 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
               {loading ? '불러오는 중...' : `실시간 ${liveCount}개 · 총 ${stations.length}개 역`}
             </ThemedText>
           </View>
+          {stations.length > 0 && (
+            <TouchableOpacity
+              onPress={() => { setViewMode(m => m === 'map' ? 'list' : 'map'); setSearchText(''); }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.viewModeBtn}
+            >
+              <Ionicons name={viewMode === 'map' ? 'list' : 'map-outline'} size={20} color={lineColor} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="close" size={24} color={COLORS.textMain} />
           </TouchableOpacity>
@@ -158,6 +189,57 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
           </View>
         </View>
 
+        {/* 역 검색바 */}
+        {stations.length > 0 && (
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={15} color={COLORS.textSub} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="역 이름으로 찾기"
+              placeholderTextColor={COLORS.textSub}
+              value={searchText}
+              onChangeText={setSearchText}
+              returnKeyType="search"
+            />
+            {searchText.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchText('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={17} color={COLORS.textSub} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* 검색 결과 목록 */}
+        {isSearching && (
+          <ScrollView style={styles.searchResultList} keyboardShouldPersistTaps="handled">
+            {searchResults.length === 0 ? (
+              <View style={styles.searchEmpty}>
+                <ThemedText style={styles.searchEmptyText}>'{query}' 역을 찾을 수 없어요</ThemedText>
+              </View>
+            ) : searchResults.map(s => {
+              const level = s.congestion_level as string | null;
+              const dotColor = level ? (LEVEL_COLOR[level] || '#8E8E93') : '#D1D1D6';
+              return (
+                <TouchableOpacity
+                  key={s.station_name}
+                  style={styles.searchResultItem}
+                  onPress={() => handleSearchSelect(s.station_name)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.searchResultDot, { backgroundColor: dotColor }]} />
+                  <ThemedText style={styles.searchResultName}>{s.station_name}</ThemedText>
+                  {level && (
+                    <View style={[styles.searchResultBadge, { backgroundColor: dotColor + '22' }]}>
+                      <ThemedText style={[styles.searchResultLevel, { color: dotColor }]}>{level}</ThemedText>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.textSub} />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
         {/* 미지원 노선 안내 배너 */}
         {isUnsupported && (
           <View style={styles.unsupportedBanner}>
@@ -168,12 +250,45 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
           </View>
         )}
 
-        {/* 노선도 맵 */}
-        {loading ? (
+        {/* 리스트뷰 모드 */}
+        {viewMode === 'list' && !isSearching && stations.length > 0 && (
+          <ScrollView style={styles.listView} keyboardShouldPersistTaps="handled">
+            {stations.map((s, idx) => {
+              const level = s.congestion_level as string | null;
+              const dotColor = level ? (LEVEL_COLOR[level] || '#8E8E93') : '#D1D1D6';
+              const isSel = selected === s.station_name;
+              return (
+                <TouchableOpacity
+                  key={s.station_name}
+                  style={[styles.listItem, isSel && { backgroundColor: lineColor + '12' }]}
+                  onPress={() => setSelected(isSel ? null : s.station_name)}
+                  activeOpacity={0.7}
+                >
+                  <ThemedText style={styles.listItemOrder}>{idx + 1}</ThemedText>
+                  <View style={[styles.listItemDot, { backgroundColor: dotColor }]} />
+                  <ThemedText style={[styles.listItemName, isSel && { color: lineColor, fontWeight: '700' }]}>
+                    {s.station_name}
+                  </ThemedText>
+                  {level ? (
+                    <View style={[styles.listItemBadge, { backgroundColor: dotColor + '22' }]}>
+                      <ThemedText style={[styles.listItemLevel, { color: dotColor }]}>{level}</ThemedText>
+                    </View>
+                  ) : (
+                    <ThemedText style={styles.listItemNoData}>-</ThemedText>
+                  )}
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.textSub} />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {/* 노선도 맵 — 검색 중이거나 리스트뷰일 때 숨김 */}
+        {viewMode === 'map' && !isSearching && loading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={lineColor} size="large" />
           </View>
-        ) : fetchError ? (
+        ) : viewMode === 'map' && !isSearching && fetchError ? (
           <View style={styles.loadingBox}>
             <Ionicons name="cloud-offline-outline" size={36} color={COLORS.textSub} />
             <ThemedText style={styles.emptyText}>데이터를 불러올 수 없습니다</ThemedText>
@@ -184,12 +299,12 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
               <ThemedText style={[styles.retryText, { color: lineColor }]}>다시 시도</ThemedText>
             </TouchableOpacity>
           </View>
-        ) : stations.length === 0 ? (
+        ) : viewMode === 'map' && !isSearching && stations.length === 0 ? (
           <View style={styles.loadingBox}>
             <Ionicons name="map-outline" size={36} color={COLORS.textSub} />
             <ThemedText style={styles.emptyText}>노선 정보를 불러올 수 없습니다</ThemedText>
           </View>
-        ) : (
+        ) : viewMode === 'map' && !isSearching ? (
           <ScrollView
             ref={scrollRef}
             horizontal
@@ -474,4 +589,74 @@ const styles = StyleSheet.create({
   // Retry button
   retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.surfaceSecondary },
   retryText: { fontSize: 14, fontWeight: '600' },
+
+  // View mode toggle button
+  viewModeBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceSecondary ?? '#F2F2F7',
+    marginRight: 4,
+  },
+
+  // List view
+  listView: { maxHeight: MAP_H + 80 },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.divider,
+  },
+  listItemOrder: { fontSize: 11, color: COLORS.textSub, width: 22, textAlign: 'right' },
+  listItemDot: { width: 12, height: 12, borderRadius: 6 },
+  listItemName: { flex: 1, fontSize: 15, fontWeight: '600', color: COLORS.textMain },
+  listItemBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  listItemLevel: { fontSize: 11, fontWeight: '600' },
+  listItemNoData: { fontSize: 12, color: COLORS.textSub, marginRight: 4 },
+
+  // Search bar
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: COLORS.surfaceSecondary ?? '#F2F2F7',
+    borderRadius: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.textMain,
+    paddingVertical: 0,
+  },
+
+  // Search results
+  searchResultList: {
+    maxHeight: MAP_H + 80,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.divider,
+  },
+  searchEmpty: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  searchEmptyText: { fontSize: 13, color: COLORS.textSub },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.divider,
+  },
+  searchResultDot: { width: 12, height: 12, borderRadius: 6 },
+  searchResultName: { flex: 1, fontSize: 15, fontWeight: '600', color: COLORS.textMain },
+  searchResultBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  searchResultLevel: { fontSize: 11, fontWeight: '600' },
 });
