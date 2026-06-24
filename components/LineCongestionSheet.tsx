@@ -116,10 +116,10 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
   const selectedData = stations.find(s => s.station_name === selected);
   const liveCount    = stations.filter(s => s.congestion_level).length;
 
-  const query = searchText.trim().replace('역', '');
+  const query = searchText.trim().replace(/역$/, '');
   const isSearching = query.length > 0;
   const searchResults = isSearching
-    ? stations.filter(s => s.station_name.replace('역', '').includes(query))
+    ? stations.filter(s => s.station_name.replace(/역$/, '').includes(query))
     : [];
 
   const handleSearchSelect = (stationName: string) => {
@@ -342,7 +342,7 @@ export function LineCongestionSheet({ visible, lineName, liveStations, onClose, 
                 const dotColor = level ? (LEVEL_COLOR[level] || '#8E8E93') : '#D1D1D6';
                 const isSel    = selected === station.station_name;
                 const isAbove  = idx % 2 === 0;
-                const shortName = station.station_name.replace('역', '');
+                const shortName = station.station_name.replace(/역$/, '');
                 const dotSize  = isSel ? DOT_S : DOT_N;
                 const dotTop   = LINE_Y - dotSize / 2;
 
