@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   ActivityIndicator,
@@ -28,6 +28,7 @@ import { FavoriteStation, getFavoriteStations } from '@/utils/favorites';
 import { FavoriteRoute, getFavoriteRoutes } from '@/utils/favoriteRoutes';
 import { AdBanner } from '@/components/AdBanner';
 import { useAds } from '@/hooks/useAds';
+import { BASE_URL } from '@/constants/config';
 
 const { width } = Dimensions.get('window');
 
@@ -214,11 +215,27 @@ export default function HomeScreen() {
     );
   }, [processedLines, searchQuery]);
 
-  const stationSearchResults = useMemo(() => {
+  const [stationSearchResults, setStationSearchResults] = useState<any[]>([]);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
     const q = stationSearchQuery.trim();
-    if (!q) return [];
-    return stationList.filter(s => s.station_name.includes(q)).slice(0, 30);
-  }, [stationList, stationSearchQuery]);
+    if (!q) { setStationSearchResults([]); return; }
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/v1/stations?q=${encodeURIComponent(q)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const results = (data as any[]).map(s => {
+          const live = stationList.find(l => l.station_name === s.station_name && l.line_name === s.line);
+          return { station_name: s.station_name, line_name: s.line, congestion_level: live?.congestion_level };
+        });
+        setStationSearchResults(results);
+      } catch {}
+    }, 250);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [stationSearchQuery, stationList]);
 
   const toggleFollow = async (id: string) => {
     const updated = followedLines.includes(id)
